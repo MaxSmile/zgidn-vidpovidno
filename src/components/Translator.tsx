@@ -30,9 +30,10 @@ export default function Translator() {
   const [inputText, setInputText] = useState("");
   const [reportData, setReportData] = useState<TranslationResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const isInputReady = inputText.trim().length > 0;
 
   const runTranslation = async () => {
-    if (!inputText.trim() || isLoading) return;
+    if (!isInputReady || isLoading) return;
 
     setIsLoading(true);
 
@@ -162,19 +163,31 @@ export default function Translator() {
               </button>
             ))}
           </div>
+          {!isInputReady && (
+            <p className="mt-3 text-xs uppercase tracking-[0.14em] text-red-400">
+              Введіть текст для запуску перекладу.
+            </p>
+          )}
         </section>
 
         <button
           type="button"
-          disabled={isLoading}
+          disabled={isLoading || !isInputReady}
+          aria-label={
+            isInputReady
+              ? "Запустити процедуру перекладу"
+              : "Введіть текст перед запуском процедури перекладу"
+          }
           onClick={runTranslation}
           className={`flex w-full items-center justify-center gap-2 border px-4 py-3 text-xs uppercase tracking-[0.22em] transition-colors ${
-            isLoading
-              ? "cursor-not-allowed border-[#4d5e46] bg-[#263120] text-[#8fa082] animate-pulse"
+            isLoading || !isInputReady
+              ? "cursor-not-allowed border-[#4d5e46] bg-[#263120] text-[#8fa082]"
               : "border-green-400 bg-green-400/10 text-green-400 hover:bg-green-400/20"
           }`}
         >
-          <WandSparkles size={16} />
+          <span className={isLoading ? "animate-pulse" : ""}>
+            <WandSparkles size={16} />
+          </span>
           {isLoading
             ? "ОБРОБКА ДАНИХ ШТРУМЕЛЬ-ІНТЕЛЕКТОМ..."
             : "ЗАПУСТИТИ ПРОЦЕДУРУ ПЕРЕКЛАДУ"}
