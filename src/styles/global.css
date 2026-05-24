@@ -1,0 +1,103 @@
+@import "tailwindcss";
+
+/* Custom Theme Variables and Styling */
+@layer base {
+  :root {
+    --bg-terminal: #070a08;
+    --bg-card: #0f1510;
+    --border-dim: #22321e;
+    --border-active: #00ff55;
+    --text-primary: #94aa8c;
+    --text-glow: #00ff66;
+    --accent-warning: #f19f38;
+    --accent-alert: #ef4444;
+    --paper-white: #e9f0e6;
+  }
+
+  body {
+    background-color: var(--bg-terminal);
+    color: var(--text-primary);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+  }
+}
+
+/* scanlines CRT effect */
+.crt-overlay {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(
+    rgba(18, 16, 16, 0) 50%, 
+    rgba(0, 0, 0, 0.25) 50%
+  ), linear-gradient(
+    90deg,
+    rgba(255, 0, 0, 0.06),
+    rgba(0, 255, 0, 0.02),
+    rgba(0, 0, 255, 0.06)
+  );
+  background-size: 100% 4px, 3px 100%;
+  z-index: 9999;
+}
+
+/* subtle radial screen vignette */
+.screen-vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(circle, transparent 50%, rgba(0, 0, 0, 0.7) 150%);
+  z-index: 9998;
+}
+
+/* Retro Military Stamp */
+.military-stamp {
+  border: 3px double var(--accent-alert);
+  color: var(--accent-alert);
+  padding: 0.5rem 1rem;
+  font-weight: 900;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  transform: rotate(-10deg);
+  display: inline-block;
+  user-select: none;
+  font-family: inherit;
+  background-color: rgba(239, 68, 68, 0.05);
+}
+
+.military-stamp-approved {
+  border: 3px double var(--border-active);
+  color: var(--border-active);
+  background-color: rgba(0, 255, 102, 0.05);
+}
+
+/* Custom Scrollbar for Terminal style */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-terminal);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--border-dim);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-active);
+}
+
+/* Matrix scanning line animation */
+@keyframes scan {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100%); }
+}
+
+.scanner-line {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(to right, transparent, var(--text-glow), transparent);
+  opacity: 0.5;
+  animation: scan 3s linear infinite;
+  pointer-events: none;
+}

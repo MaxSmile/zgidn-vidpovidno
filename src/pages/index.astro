@@ -1,5 +1,6 @@
 ---
 import Translator from "../components/Translator";
+import "../styles/global.css";
 ---
 
 <!doctype html>
@@ -7,9 +8,17 @@ import Translator from "../components/Translator";
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Zgidno-Vidpovidno</title>
+    <meta name="description" content="Автоматизований Перекладач Військової Бюрократії. Переклад повсякденних цивільних фраз у рапорти за стандартами СЕД ЗСУ." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    
+    <!-- Google Fonts for JetBrains Mono and Space Grotesk -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,700;1,400&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet" />
+
+    <title>Згідно-Відповідно 🪖 — Генератор Військових Рапортів</title>
   </head>
-  <body class="bg-[#131a10]">
+  <body class="bg-[#070a08] min-h-screen selection:bg-[#00ff66]/20 selection:text-[#00ff66]">
     <Translator client:load />
   </body>
 </html>

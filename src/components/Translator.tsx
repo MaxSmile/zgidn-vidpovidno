@@ -1,5 +1,6 @@
-import { useState } from "react";
-import { Copy, Share2, WandSparkles } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Copy, Share2, WandSparkles, FileText, CheckCircle2, ShieldAlert, Clock, RefreshCw } from "lucide-react";
+import vocabularyData from "../../vocabulary.json";
 
 type Branch =
   | "СБС"
@@ -8,8 +9,16 @@ type Branch =
   | "Сухопутні Війська"
   | "ВМС";
 
+type Approver = {
+  role: string;
+  status: string;
+};
+
 type TranslationResponse = {
   report: string;
+  resolution: string;
+  order: string;
+  approvers: Approver[];
   regulation: string;
   authorized_by: string;
   operation_code: string;
@@ -23,8 +32,17 @@ const BRANCHES: Branch[] = [
   "ВМС",
 ];
 
-const PRESETS = ["Купити хліба", "Лягти спати", "Зробити каву"];
-const APP_VERSION = "v2.4";
+const PRESETS = [
+  "Старлінк обісцяли собаки",
+  "Забув пароль від пошти",
+  "Вимкнули світло, здох безперебійник",
+  "Пролив каву на клавіатуру",
+  "Комар залетів у кімнату і пищить",
+  "Фарбуємо траву перед приїздом генерала"
+];
+
+const APP_VERSION = "v2.4.0-CLOUDFLARE";
+const WORKER_URL = "https://zgidno-vidpovidno.vasilkoff-dev.workers.dev/";
 
 export default function Translator() {
   const [activeBranch, setActiveBranch] = useState<Branch>("СБС");
@@ -32,38 +50,164 @@ export default function Translator() {
   const [reportData, setReportData] = useState<TranslationResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [docNumber, setDocNumber] = useState("");
+  const [docDate, setDocDate] = useState("");
+
   const isInputReady = inputText.trim().length > 0;
+
+  // Generate unique document number and date when report changes
+  useEffect(() => {
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    
+    setDocNumber(`ЗВ-${year}/${month}/${day}-${rand}`);
+    setDocDate(`${day}.${month}.${year} о ${hours}:${minutes}`);
+  }, [reportData]);
+
+  // Loading steps text rotation
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingStep(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setLoadingStep((prev) => (prev + 1) % 4);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, [isLoading]);
+
+  const loadingMessages = [
+    "НАДСИЛАННЯ ПАКЕТУ ДАНИХ КРІЗЬ CLOUDFLARE SHIELD...",
+    "ОБРОБКА ЗАПИТУ ШТРУМЕЛЬ-ІНТЕЛЕКТОМ (GEMINI 2.5 FLASH)...",
+    "ФОРМУВАННЯ СТРУКТУРОВАНОГО JSON ПАКЕТУ ЗГІДНО СТАНДАРТІВ...",
+    "АКТИВАЦІЯ СЕД ТА СИМУЛЯЦІЯ ПОСАДОВИХ ОСІБ..."
+  ];
 
   const runTranslation = async () => {
     if (!isInputReady || isLoading) return;
 
     setIsLoading(true);
+    setActionNotice(null);
 
     try {
-      const response = await fetch("/api/translate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
+      // Map UI branch names to vocabulary.json branch names
+      const branchMapping: Record<string, string> = {
+        "СБС": "Сили безпілотних систем",
+        "Повітряні Сили": "Повітряні Сили",
+        "Війська Зв'язку": "Війська зв'язку та кібербезпеки",
+        "Сухопутні Війська": "Сухопутні війська",
+        "ВМС": "Військово-Морські Сили",
+      };
+
+      const targetBranch = branchMapping[activeBranch] || activeBranch;
+
+      // Filter relevant examples from vocabulary.json for few-shot learning
+      const targetBranchExamples = vocabularyData.filter(ex => ex.branch === targetBranch).slice(0, 4);
+      const otherBranchExamples = vocabularyData.filter(ex => ex.branch !== targetBranch).slice(0, 2);
+      const selectedExamples = [...targetBranchExamples, ...otherBranchExamples];
+
+      const examplesPrompt = selectedExamples.map((ex, index) => `
+Example ${index + 1}:
+Branch: ${ex.branch}
+Input: "${ex.input}"
+Output JSON:
+${JSON.stringify(ex.output, null, 2)}
+`).join('\n');
+
+      const systemPrompt = `
+You are the core AI translation engine of "Програмний комплекс автоматизації бюрократії v2.4" for the Armed Forces of Ukraine (ЗСУ).
+Your job is to translate mundane, civilian everyday phrases in Ukrainian into absurdly over-engineered, formal, deadpan military reports ("Рапорти") that match the exact tone of Ukrainian army paperwork and electronic document management (СЕД).
+
+Rules:
+1. The output MUST be a valid JSON object matching the schema below. Do not output markdown block wrappers (like \`\`\`json) inside the JSON response itself.
+2. The "report" field MUST start with the word "ДІЙСНИМ ДОПОВІДАЮ: ".
+3. Use highly formal, passive, bureaucratic Ukrainian military jargon (e.g. "особовий склад", "несанкціоноване втручання", "деградація цифрового контуру", "вилучення", "контроль за виконанням покласти на").
+4. "resolution" must represent a formal command or resolution from a commanding officer addressing the situation in a bureaucratic way.
+5. "order" must represent a directive to be distributed to the staff.
+6. "approvers" is an array of 2-3 officers. Each object must have a "role" and "status". Keep status uppercase (e.g. "ПОГОДЖЕНО", "В ОЧІКУВАННІ", "ЗАТВЕРДЖЕНО", "КОНТРОЛЬ ВСТАНОВЛЕНО").
+7. If the input mentions animals (dogs, cats, birds, etc.), you MUST automatically include "Начальник кінологічної служби" in the "approvers" list.
+8. "regulation" must cite a funny, fictional, but very official-sounding military regulation (e.g. "Стаття X Настанови з Y").
+9. "authorized_by" should be a title like "Командир військової частини" or "Начальник зв'язку" optionally signed with a username like "k.vernadska" or "gonezales1978".
+10. "operation_code" should be a funny military code starting with "КОД-" (e.g. "КОД-ГІДРАНТ-СПИРТ-200").
+
+JSON Schema:
+{
+  "report": "string (starts with 'ДІЙСНИМ ДОПОВІДАЮ: ')",
+  "resolution": "string",
+  "order": "string",
+  "approvers": [
+    { "role": "string", "status": "string" }
+  ],
+  "regulation": "string",
+  "authorized_by": "string",
+  "operation_code": "string"
+}
+`;
+
+      const userPrompt = `
+Here are some examples of translations for reference:
+${examplesPrompt}
+
+Now, translate the following request:
+Branch: ${targetBranch}
+Input: "${inputText}"
+Output JSON:
+`;
+
+      const payload = {
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: userPrompt }]
+          }
+        ],
+        systemInstruction: {
+          parts: [{ text: systemPrompt }]
         },
-        body: JSON.stringify({
-          branch: activeBranch,
-          input: inputText,
-        }),
+        generationConfig: {
+          responseMimeType: "application/json"
+        }
+      };
+
+      const response = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
-        throw new Error("Translation request failed");
+        throw new Error("Translation request via Cloudflare Worker failed");
       }
 
-      const data: TranslationResponse = await response.json();
-      setReportData(data);
-    } catch {
+      const data = await response.json();
+      
+      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
+        throw new Error("Invalid response structure from Gemini API");
+      }
+
+      const text = data.candidates[0].content.parts[0].text;
+      const parsedResponse = JSON.parse(text.trim()) as TranslationResponse;
+      setReportData(parsedResponse);
+    } catch (error: any) {
+      console.error(error);
       setReportData({
         report:
-          "ПОМИЛКА ЗВ'ЯЗКУ З ШТРУМЕЛЬ-ІНТЕЛЕКТОМ. ПОВТОРІТЬ ЗАПИТ ПІСЛЯ ВІДНОВЛЕННЯ КАНАЛУ.",
-        regulation: "R-ERR-17",
-        authorized_by: "Система аварійного реагування",
-        operation_code: "FAILSAFE-000",
+          "ДІЙСНИМ ДОПОВІДАЮ: у зв'язку з виникненням критичної помилки при взаємодії з Cloudflare Worker проксі-сервером, передачу даних призупинено. Перевірте працездатність проксі-каналу та повторіть спробу.",
+        regulation: "Стаття 503 Тимчасового регламенту шлюзів",
+        authorized_by: "Системний термінал проксі / cloudflare.proxy",
+        operation_code: "КОД-ШЛЮЗ-ПОМИЛКА-503",
+        resolution: "Начальнику зв'язку здійснити перевірку працездатності Cloudflare Worker.",
+        order: "Особовому складу перейти в автономний режим радіомовчання.",
+        approvers: [
+          { role: "Користувач системи", status: "ШЛЮЗ ЗАБЛОКОВАНО" },
+          { role: "Черговий інженер Cloudflare", status: "ПОМИЛКА З'ЄДНАННЯ" }
+        ]
       });
     } finally {
       setIsLoading(false);
@@ -73,17 +217,37 @@ export default function Translator() {
   const onCopy = async () => {
     if (!reportData) return;
 
-    const output = `${reportData.report}
+    const approversStr = reportData.approvers
+      ? reportData.approvers.map(a => `- ${a.role}: [${a.status}]`).join('\n')
+      : '';
+
+    const output = `--- МІНІСТЕРСТВО ОБОРОНИ УКРАЇНИ ---
+Реєстраційний №: ${docNumber}
+Дата: ${docDate}
+Рід військ: ${activeBranch}
+
+РАПОРТ
+
+${reportData.report}
+
+РЕЗОЛЮЦІЯ:
+${reportData.resolution}
+
+НАКАЗ:
+${reportData.order}
+
+ПОГОДЖУВАЧІ:
+${approversStr}
 
 Регламент: ${reportData.regulation}
-Відповідальний: ${reportData.authorized_by}
+Затвердив: ${reportData.authorized_by}
 Код операції: ${reportData.operation_code}`;
 
     try {
       await navigator.clipboard.writeText(output);
-      setActionNotice("СКОПІЙОВАНО ДО БУФЕРА ОБМІНУ.");
+      setActionNotice("СКОПІЙОВАНО ДО БУФЕРА ОБМІНУ (ФОРМАТОВАНИЙ РАПОРТ).");
     } catch {
-      setActionNotice("НЕ ВДАЛОСЯ СКОПІЮВАТИ. ПЕРЕВІРТЕ ДОСТУП ДО БУФЕРА.");
+      setActionNotice("НЕ ВДАЛОСЯ СКОПІЮВАТИ. НАДАЙТЕ ДОСТУП ДО БУФЕРА.");
     }
   };
 
@@ -91,169 +255,363 @@ export default function Translator() {
     if (!reportData) return;
 
     const payload = {
-      title: "Zgidno-Vidpovidno",
+      title: `Рапорт ${docNumber}`,
       text: `${reportData.report}\n[${reportData.operation_code}]`,
     };
 
     try {
       if (navigator.share) {
         await navigator.share(payload);
-        setActionNotice("НАДСИЛАННЯ ІНІЦІЙОВАНО.");
+        setActionNotice("МЕНЮ НАДСИЛАННЯ ВІДКРИТО.");
         return;
       }
 
       await navigator.clipboard.writeText(payload.text);
-      setActionNotice("ДАНІ ПІДГОТОВЛЕНО ТА СКОПІЙОВАНО.");
+      setActionNotice("НАДСИЛАННЯ НЕПІДТРИМУЄТЬСЯ. КОРОТКИЙ ТЕКСТ СКОПІЙОВАНО.");
     } catch {
-      setActionNotice("НЕ ВДАЛОСЯ НАДІСЛАТИ/СКОПІЮВАТИ ДАНІ.");
+      setActionNotice("НЕ ВДАЛОСЯ НАДІСЛАТИ ДАНІ.");
     }
   };
 
+  const getStatusIcon = (status: string) => {
+    const lower = status.toLowerCase();
+    if (lower.includes("погоджено") || lower.includes("затверджено")) {
+      return <CheckCircle2 size={14} className="text-[#00ff66]" />;
+    }
+    if (lower.includes("службове") || lower.includes("пошкодження") || lower.includes("помилка") || lower.includes("відмова") || lower.includes("не")) {
+      return <ShieldAlert size={14} className="text-red-400 animate-pulse" />;
+    }
+    return <Clock size={14} className="text-amber-400" />;
+  };
+
+  const getStatusClass = (status: string) => {
+    const lower = status.toLowerCase();
+    if (lower.includes("погоджено") || lower.includes("затверджено")) {
+      return "border-green-500/30 bg-green-500/10 text-green-400";
+    }
+    if (lower.includes("службове") || lower.includes("пошкодження") || lower.includes("помилка") || lower.includes("відмова") || lower.includes("не")) {
+      return "border-red-500/30 bg-red-500/10 text-red-400";
+    }
+    return "border-amber-500/30 bg-amber-500/10 text-amber-400";
+  };
+
   return (
-    <main className="min-h-screen bg-[#131a10] px-4 py-8 font-mono text-[#a3b899] sm:px-6">
-      <div className="mx-auto w-full max-w-5xl space-y-6">
-        <header className="rounded-md border border-[#3b4d35] bg-[#1a2416] p-4 sm:p-6">
+    <main className="min-h-screen bg-[#070a08] px-4 py-8 font-mono text-[#94aa8c] sm:px-6 relative">
+      <div className="crt-overlay" />
+      <div className="screen-vignette" />
+
+      <div className="mx-auto w-full max-w-6xl space-y-6 relative z-10">
+        
+        {/* Terminal Header */}
+        <header className="rounded border border-[#22321e] bg-[#0f1510] p-4 sm:p-6 shadow-[0_0_15px_rgba(15,21,16,0.5)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-xl font-semibold uppercase tracking-[0.24em] text-green-400 sm:text-2xl">
-                Zgidno-Vidpovidno
-              </h1>
-              <p className="mt-1 text-xs uppercase tracking-[0.3em] text-[#79906f]">{APP_VERSION}</p>
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="h-3 w-3 rounded-full bg-green-500 animate-ping inline-block" />
+                <h1 className="text-xl font-bold uppercase tracking-[0.2em] text-[#00ff66] sm:text-2xl drop-shadow-[0_0_8px_rgba(0,255,102,0.4)]">
+                  ЗГІДНО-ВІДПОВІДНО
+                </h1>
+              </div>
+              <p className="text-xs uppercase tracking-[0.25em] text-[#5c7056]">
+                Автоматизований Перекладач Військової Бюрократії {APP_VERSION}
+              </p>
             </div>
-            <div className="inline-flex items-center gap-2 self-start rounded border border-[#3b4d35] px-3 py-2 text-xs uppercase tracking-[0.18em] text-red-400 sm:self-auto">
-              <span className="animate-pulse text-green-400">●</span>
-              БОЙОВА ГОТОВНІСТЬ
+            <div className="inline-flex items-center gap-3 rounded border border-[#22321e] bg-[#070a08] px-4 py-2 text-xs uppercase tracking-[0.15em] text-[#f19f38]">
+              <span className="h-2 w-2 rounded-full bg-[#f19f38] animate-pulse" />
+              БЕЗПЕКА: ПРОКСІ-З'ЄДНАННЯ CLOUDFLARE
             </div>
           </div>
         </header>
 
-        <section className="rounded-md border border-[#3b4d35] bg-[#1a2416] p-4 sm:p-6">
-          <p className="mb-3 text-xs uppercase tracking-[0.22em] text-[#79906f]">Рід військ</p>
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-5">
-            {BRANCHES.map((branch) => {
-              const isActive = activeBranch === branch;
-              return (
-                <button
-                  key={branch}
-                  type="button"
-                  onClick={() => setActiveBranch(branch)}
-                  className={`border px-3 py-2 text-xs uppercase tracking-[0.12em] transition-colors ${
-                    isActive
-                      ? "border-green-400 bg-green-400/10 text-green-400"
-                      : "border-[#3b4d35] bg-transparent text-[#a3b899] hover:border-green-500 hover:text-green-400"
-                  }`}
-                >
-                  {branch}
-                </button>
-              );
-            })}
-          </div>
-        </section>
-
-        <section className="rounded-md border border-[#3b4d35] bg-[#1a2416] p-4 sm:p-6">
-          <label
-            htmlFor="civil-input"
-            className="mb-3 block text-xs uppercase tracking-[0.22em] text-[#79906f]"
-          >
-            Цивільний текст
-          </label>
-          <textarea
-            id="civil-input"
-            value={inputText}
-            onChange={(event) => setInputText(event.target.value)}
-            placeholder="Введіть цивільний запит..."
-            className="h-36 w-full resize-y border border-[#3b4d35] bg-[#131a10] p-3 text-sm text-[#a3b899] outline-none transition-colors placeholder:text-[#5e7058] focus:border-green-400"
-          />
-          <div className="mt-3 flex flex-wrap gap-2">
-            {PRESETS.map((preset) => (
-              <button
-                key={preset}
-                type="button"
-                onClick={() => setInputText(preset)}
-                className="border border-[#3b4d35] px-3 py-2 text-xs uppercase tracking-[0.14em] text-[#a3b899] transition-colors hover:border-green-500 hover:text-green-400"
-              >
-                {preset}
-              </button>
-            ))}
-          </div>
-          {!isInputReady && (
-            <p className="mt-3 text-xs uppercase tracking-[0.14em] text-red-400">
-              Введіть текст для запуску перекладу.
-            </p>
-          )}
-        </section>
-
-        <button
-          type="button"
-          disabled={isLoading || !isInputReady}
-          aria-label={
-            isInputReady
-              ? "Запустити процедуру перекладу"
-              : "Введіть текст перед запуском процедури перекладу"
-          }
-          onClick={runTranslation}
-          className={`flex w-full items-center justify-center gap-2 border px-4 py-3 text-xs uppercase tracking-[0.22em] transition-colors ${
-            isLoading || !isInputReady
-              ? "cursor-not-allowed border-[#4d5e46] bg-[#263120] text-[#8fa082]"
-              : "border-green-400 bg-green-400/10 text-green-400 hover:bg-green-400/20"
-          }`}
-        >
-          <span className={isLoading ? "animate-pulse" : ""}>
-            <WandSparkles size={16} />
-          </span>
-          {isLoading
-            ? "ОБРОБКА ДАНИХ ШТРУМЕЛЬ-ІНТЕЛЕКТОМ..."
-            : "ЗАПУСТИТИ ПРОЦЕДУРУ ПЕРЕКЛАДУ"}
-        </button>
-
-        {reportData && (
-          <section className="rounded-md border border-dashed border-[#4a6140] bg-[#1a2416] p-4 sm:p-6">
-            <p className="text-sm italic leading-relaxed text-[#bed1b6]">{reportData.report}</p>
-
-            <div className="mt-5 grid gap-4 border-t border-[#3b4d35] pt-4 sm:grid-cols-[1fr_auto] sm:items-end">
-              <div>
-                <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[#79906f]">regulation</p>
-                <p className="mt-1 text-sm text-green-400">{reportData.regulation}</p>
+        {/* Workspace Layout */}
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
+          
+          {/* Left Column: Input Form & Controls */}
+          <div className="space-y-6">
+            
+            {/* Branch Selector */}
+            <section className="rounded border border-[#22321e] bg-[#0f1510] p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <FileText size={14} className="text-[#00ff66]" />
+                <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-[#00ff66]">
+                  Вибір Роду Військ
+                </h2>
               </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {BRANCHES.map((branch) => {
+                  const isActive = activeBranch === branch;
+                  return (
+                    <button
+                      key={branch}
+                      type="button"
+                      onClick={() => setActiveBranch(branch)}
+                      className={`border px-3 py-2.5 text-left text-xs uppercase tracking-[0.1em] transition-all relative overflow-hidden ${
+                        isActive
+                          ? "border-[#00ff66] bg-[#00ff66]/10 text-[#00ff66] shadow-[0_0_10px_rgba(0,255,102,0.15)]"
+                          : "border-[#22321e] bg-[#070a08]/50 text-[#94aa8c] hover:border-[#00ff66]/50 hover:text-[#00ff66]"
+                      }`}
+                    >
+                      {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#00ff66]" />}
+                      {branch}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
 
-              <div className="relative border border-[#5b6f53] px-3 py-2 text-right text-xs uppercase tracking-[0.14em] text-[#d2dbc7] [transform:skew(-6deg)]">
-                <p>{reportData.authorized_by}</p>
-                <span className="pointer-events-none absolute inset-0 flex items-center justify-center text-[0.6rem] tracking-[0.3em] text-red-400/80 [transform:rotate(-12deg)]">
-                  ЗАТВЕРДЖЕНО
+            {/* Input Textarea & Presets */}
+            <section className="rounded border border-[#22321e] bg-[#0f1510] p-4 sm:p-5 relative overflow-hidden">
+              {isLoading && <div className="scanner-line" />}
+              
+              <div className="flex justify-between items-center mb-3">
+                <label
+                  htmlFor="civil-input"
+                  className="text-xs uppercase tracking-[0.2em] font-semibold text-[#00ff66] flex items-center gap-2"
+                >
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#00ff66]" />
+                  Цивільний опис інциденту
+                </label>
+                <span className="text-[0.65rem] text-[#5c7056] uppercase tracking-[0.1em]">
+                  {inputText.length} символів
                 </span>
               </div>
-            </div>
+              
+              <textarea
+                id="civil-input"
+                value={inputText}
+                onChange={(event) => setInputText(event.target.value)}
+                placeholder="Наприклад: Кіт скинув вазон на клавіатуру ноута..."
+                disabled={isLoading}
+                className="h-32 w-full resize-none border border-[#22321e] bg-[#070a08] p-3 text-sm text-[#e9f0e6] outline-none transition-all placeholder:text-[#3d5037] focus:border-[#00ff66] focus:shadow-[0_0_8px_rgba(0,255,102,0.1)] focus:ring-1 focus:ring-[#00ff66]/20 font-sans"
+              />
+              
+              <div className="mt-4">
+                <p className="mb-2 text-[0.65rem] uppercase tracking-[0.15em] text-[#5c7056]">
+                  Швидкі шаблони (Presets)
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {PRESETS.map((preset) => (
+                    <button
+                      key={preset}
+                      type="button"
+                      disabled={isLoading}
+                      onClick={() => setInputText(preset)}
+                      className="border border-[#22321e] bg-[#070a08]/30 px-2 py-1 text-[0.7rem] uppercase tracking-[0.05em] text-[#94aa8c] transition-all hover:border-[#00ff66] hover:text-[#00ff66] hover:bg-[#00ff66]/5 rounded-sm"
+                    >
+                      {preset}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              
+              {!isInputReady && (
+                <p className="mt-3 text-[0.68rem] uppercase tracking-[0.1em] text-[#ef4444] flex items-center gap-1.5">
+                  ⚠️ ВВЕДІТЬ ОПИС ДЛЯ ІНІЦІАЛІЗАЦІЇ.
+                </p>
+              )}
+            </section>
 
-            <div className="mt-4 border-l-2 border-green-400 pl-3">
-              <p className="text-[0.62rem] uppercase tracking-[0.22em] text-[#79906f]">operation code</p>
-              <p className="mt-1 text-base font-semibold uppercase tracking-[0.18em] text-green-400">
-                {reportData.operation_code}
-              </p>
-            </div>
+            {/* Submit Button */}
+            <button
+              type="button"
+              disabled={isLoading || !isInputReady}
+              onClick={runTranslation}
+              className={`flex w-full items-center justify-center gap-3 border px-4 py-3.5 text-xs font-bold uppercase tracking-[0.25em] transition-all duration-300 ${
+                isLoading || !isInputReady
+                  ? "cursor-not-allowed border-[#22321e] bg-[#0d130e] text-[#4d5e46]"
+                  : "border-[#00ff66] bg-[#00ff66]/5 text-[#00ff66] hover:bg-[#00ff66]/15 hover:shadow-[0_0_15px_rgba(0,255,102,0.2)] active:scale-[0.98]"
+              }`}
+            >
+              {isLoading ? (
+                <RefreshCw size={15} className="animate-spin text-[#00ff66]" />
+              ) : (
+                <WandSparkles size={15} />
+              )}
+              {isLoading
+                ? "ОБРОБКА ЗАПИТУ ШТРУМЕЛЬ-ІНТЕЛЕКТОМ..."
+                : "ЗГЕНЕРУВАТИ РАПОРТ"}
+            </button>
+          </div>
 
-            <div className="mt-5 flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={onCopy}
-                className="inline-flex items-center gap-2 border border-[#3b4d35] px-3 py-2 text-xs uppercase tracking-[0.14em] transition-colors hover:border-green-500 hover:text-green-400"
-              >
-                <Copy size={14} />
-                Copy
-              </button>
-              <button
-                type="button"
-                onClick={onShare}
-                className="inline-flex items-center gap-2 border border-[#3b4d35] px-3 py-2 text-xs uppercase tracking-[0.14em] transition-colors hover:border-green-500 hover:text-green-400"
-              >
-                <Share2 size={14} />
-                Share
-              </button>
-            </div>
-            {actionNotice && (
-              <p className="mt-3 text-xs uppercase tracking-[0.14em] text-[#99b78d]">{actionNotice}</p>
+          {/* Right Column: Output Document */}
+          <div className="space-y-4">
+            {isLoading ? (
+              <div className="flex h-96 flex-col items-center justify-center rounded border border-[#22321e] bg-[#0f1510] p-6 text-center space-y-4 relative overflow-hidden">
+                <div className="scanner-line" />
+                <RefreshCw size={32} className="animate-spin text-[#00ff66]" />
+                <div className="space-y-2">
+                  <p className="text-xs uppercase tracking-[0.2em] text-[#00ff66] font-bold animate-pulse">
+                    СИСТЕМНИЙ ЗБІР МАТЕРІАЛІВ...
+                  </p>
+                  <p className="text-[0.7rem] uppercase tracking-[0.15em] text-[#5c7056] max-w-sm leading-relaxed">
+                    {loadingMessages[loadingStep]}
+                  </p>
+                </div>
+              </div>
+            ) : reportData ? (
+              <div className="space-y-4">
+                
+                {/* Official Military Blank Sheet */}
+                <section className="rounded border border-[#22321e] bg-[#0f1510] p-5 sm:p-8 shadow-[0_0_20px_rgba(0,0,0,0.4)] relative overflow-hidden border-t-4 border-t-[#00ff66]">
+                  
+                  {/* Watermark Diagonal Stamp */}
+                  <div className="absolute right-6 top-24 pointer-events-none opacity-[0.06] transform rotate-[-25deg] select-none z-0">
+                    <div className="border-[6px] border-double border-[#00ff66] px-6 py-3 text-3xl font-black tracking-[0.25em] text-[#00ff66] uppercase rounded-sm">
+                      {reportData.operation_code.includes("ПОМИЛКА") ? "ЗБІЙ СИСТЕМИ" : "ЗГІДНО-ВІДПОВІДНО"}
+                    </div>
+                  </div>
+
+                  {/* Header Details */}
+                  <div className="border-b border-[#22321e] pb-4 mb-6 z-10 relative">
+                    <div className="flex justify-between items-start text-[0.68rem] text-[#5c7056] uppercase tracking-[0.12em] leading-relaxed">
+                      <div>
+                        <p className="font-bold text-[#94aa8c]">МІНІСТЕРСТВО ОБОРОНИ УКРАЇНИ</p>
+                        <p>{activeBranch} (ЗСУ)</p>
+                        <p>Військовий сегмент: СЕД V2.4</p>
+                      </div>
+                      <div className="text-right font-mono">
+                        <p className="text-[#94aa8c] font-bold">Вхідний №: <span className="text-[#00ff66]">{docNumber}</span></p>
+                        <p>Дата: {docDate}</p>
+                        <p className="text-[#f19f38]">ДСК (ДЛЯ СЛУЖБОВОГО КОРИСТУВАННЯ)</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Document Title */}
+                  <div className="text-center my-6 z-10 relative">
+                    <h3 className="text-base font-bold uppercase tracking-[0.4em] text-[#00ff66] drop-shadow-[0_0_5px_rgba(0,255,102,0.2)]">
+                      Р А П О Р Т
+                    </h3>
+                  </div>
+
+                  {/* Main Report Body */}
+                  <div className="my-6 z-10 relative">
+                    <p className="text-sm leading-relaxed text-[#e9f0e6] whitespace-pre-line font-sans indent-8">
+                      {reportData.report}
+                    </p>
+                  </div>
+
+                  {/* Resolution & Order */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 border-t border-b border-[#22321e] py-4 my-6 z-10 relative bg-[#070a08]/30 px-3 rounded-sm">
+                    <div>
+                      <h4 className="text-[0.65rem] uppercase tracking-[0.2em] text-[#5c7056] font-bold mb-1">
+                        Резолюція Командування:
+                      </h4>
+                      <p className="text-xs text-[#94aa8c] leading-relaxed italic">
+                        {reportData.resolution}
+                      </p>
+                    </div>
+                    <div className="border-t md:border-t-0 md:border-l border-[#22321e] pt-3 md:pt-0 md:pl-4">
+                      <h4 className="text-[0.65rem] uppercase tracking-[0.2em] text-[#5c7056] font-bold mb-1">
+                        Вказівки / Наказ:
+                      </h4>
+                      <p className="text-xs text-[#94aa8c] leading-relaxed italic">
+                        {reportData.order}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Document Management approvals */}
+                  <div className="my-6 z-10 relative">
+                    <h4 className="text-[0.65rem] uppercase tracking-[0.2em] text-[#5c7056] font-bold mb-2">
+                      Електронне погодження документа (СЕД):
+                    </h4>
+                    <div className="space-y-1.5">
+                      {reportData.approvers && reportData.approvers.map((approver, index) => (
+                        <div 
+                          key={index}
+                          className={`flex items-center justify-between border px-3 py-1.5 text-[0.7rem] rounded-sm uppercase tracking-[0.05em] ${getStatusClass(approver.status)}`}
+                        >
+                          <span className="font-semibold">{approver.role}</span>
+                          <span className="flex items-center gap-1.5 font-bold text-[0.65rem]">
+                            {getStatusIcon(approver.status)}
+                            {approver.status}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Regulation & Sign off */}
+                  <div className="mt-8 pt-4 border-t border-[#22321e] flex flex-col md:flex-row md:justify-between md:items-end gap-6 z-10 relative">
+                    <div className="space-y-1">
+                      <p className="text-[0.62rem] uppercase tracking-[0.2em] text-[#5c7056]">Регламентуюча база</p>
+                      <p className="text-[0.75rem] text-[#00ff66]">{reportData.regulation}</p>
+                    </div>
+
+                    <div className="relative border border-[#22321e] bg-[#070a08]/80 px-4 py-2.5 text-right rounded-sm min-w-[200px]">
+                      <p className="text-[0.68rem] font-bold uppercase tracking-[0.1em] text-[#e9f0e6]">
+                        {reportData.authorized_by}
+                      </p>
+                      <p className="text-[0.55rem] text-[#5c7056] uppercase tracking-[0.1em] mt-0.5">
+                        Електронний підпис (ЕЦП)
+                      </p>
+                      <span className="pointer-events-none absolute -top-2.5 right-4 text-[0.58rem] font-bold tracking-[0.15em] text-[#00ff66] bg-[#0f1510] border border-[#22321e] px-1.5 py-0.5 rounded-sm">
+                        ЗАТВЕРДЖЕНО
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Operation Code Footer */}
+                  <div className="mt-6 pt-3 border-t border-dashed border-[#22321e] flex justify-between items-center text-[0.68rem] text-[#5c7056] uppercase tracking-[0.15em]">
+                    <span>OPERATION CODE:</span>
+                    <span className="text-sm font-bold text-[#00ff66] tracking-[0.2em]">{reportData.operation_code}</span>
+                  </div>
+
+                </section>
+
+                {/* Document Actions */}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={onCopy}
+                    className="flex-1 flex items-center justify-center gap-2 border border-[#22321e] bg-[#0f1510] py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#94aa8c] transition-all hover:border-[#00ff66] hover:text-[#00ff66] hover:bg-[#00ff66]/5 rounded-sm"
+                  >
+                    <Copy size={13} />
+                    Копіювати рапорт
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onShare}
+                    className="flex-1 flex items-center justify-center gap-2 border border-[#22321e] bg-[#0f1510] py-2.5 text-xs font-semibold uppercase tracking-[0.15em] text-[#94aa8c] transition-all hover:border-[#00ff66] hover:text-[#00ff66] hover:bg-[#00ff66]/5 rounded-sm"
+                  >
+                    <Share2 size={13} />
+                    Поділитися
+                  </button>
+                </div>
+
+                {actionNotice && (
+                  <div className="rounded border border-[#22321e] bg-[#0f1510] px-4 py-2.5 text-center text-xs uppercase tracking-[0.15em] text-[#00ff66] animate-pulse">
+                    {actionNotice}
+                  </div>
+                )}
+
+              </div>
+            ) : (
+              <div className="flex h-96 flex-col items-center justify-center rounded border border-[#22321e] bg-[#0f1510] p-6 text-center text-[#5c7056] relative">
+                <FileText size={40} className="mb-3 opacity-30 text-[#94aa8c]" />
+                <p className="text-xs uppercase tracking-[0.2em] font-bold">Очікування вводу даних...</p>
+                <p className="text-[0.68rem] uppercase tracking-[0.15em] mt-1.5 max-w-xs">
+                  Заповніть опис події ліворуч та натисніть кнопку генерації рапорту.
+                </p>
+              </div>
             )}
-          </section>
-        )}
+          </div>
+
+        </div>
+
+        <footer className="border-t border-[#22321e] pt-4 text-center text-[0.68rem] uppercase tracking-[0.16em] text-[#5c7056]">
+          <span>Відкритий код:</span>{" "}
+          <a
+            href="https://github.com/MaxSmile/zgidn-vidpovidno/"
+            target="_blank"
+            rel="noreferrer"
+            className="text-[#00ff66] underline decoration-[#00ff66]/30 underline-offset-4 transition-colors hover:text-[#e9f0e6]"
+          >
+            MaxSmile/zgidn-vidpovidno
+          </a>
+        </footer>
+
       </div>
     </main>
   );
