@@ -24,12 +24,14 @@ const BRANCHES: Branch[] = [
 ];
 
 const PRESETS = ["Купити хліба", "Лягти спати", "Зробити каву"];
+const APP_VERSION = "v2.4";
 
 export default function Translator() {
   const [activeBranch, setActiveBranch] = useState<Branch>("СБС");
   const [inputText, setInputText] = useState("");
   const [reportData, setReportData] = useState<TranslationResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [actionNotice, setActionNotice] = useState<string | null>(null);
   const isInputReady = inputText.trim().length > 0;
 
   const runTranslation = async () => {
@@ -77,7 +79,12 @@ export default function Translator() {
 Відповідальний: ${reportData.authorized_by}
 Код операції: ${reportData.operation_code}`;
 
-    await navigator.clipboard.writeText(output);
+    try {
+      await navigator.clipboard.writeText(output);
+      setActionNotice("СКОПІЙОВАНО ДО БУФЕРА ОБМІНУ.");
+    } catch {
+      setActionNotice("НЕ ВДАЛОСЯ СКОПІЮВАТИ. ПЕРЕВІРТЕ ДОСТУП ДО БУФЕРА.");
+    }
   };
 
   const onShare = async () => {
@@ -88,12 +95,18 @@ export default function Translator() {
       text: `${reportData.report}\n[${reportData.operation_code}]`,
     };
 
-    if (navigator.share) {
-      await navigator.share(payload);
-      return;
-    }
+    try {
+      if (navigator.share) {
+        await navigator.share(payload);
+        setActionNotice("НАДСИЛАННЯ ІНІЦІЙОВАНО.");
+        return;
+      }
 
-    await navigator.clipboard.writeText(payload.text);
+      await navigator.clipboard.writeText(payload.text);
+      setActionNotice("ДАНІ ПІДГОТОВЛЕНО ТА СКОПІЙОВАНО.");
+    } catch {
+      setActionNotice("НЕ ВДАЛОСЯ НАДІСЛАТИ/СКОПІЮВАТИ ДАНІ.");
+    }
   };
 
   return (
@@ -105,7 +118,7 @@ export default function Translator() {
               <h1 className="text-xl font-semibold uppercase tracking-[0.24em] text-green-400 sm:text-2xl">
                 Zgidno-Vidpovidno
               </h1>
-              <p className="mt-1 text-xs uppercase tracking-[0.3em] text-[#79906f]">v2.4</p>
+              <p className="mt-1 text-xs uppercase tracking-[0.3em] text-[#79906f]">{APP_VERSION}</p>
             </div>
             <div className="inline-flex items-center gap-2 self-start rounded border border-[#3b4d35] px-3 py-2 text-xs uppercase tracking-[0.18em] text-red-400 sm:self-auto">
               <span className="animate-pulse text-green-400">●</span>
@@ -236,6 +249,9 @@ export default function Translator() {
                 Share
               </button>
             </div>
+            {actionNotice && (
+              <p className="mt-3 text-xs uppercase tracking-[0.14em] text-[#99b78d]">{actionNotice}</p>
+            )}
           </section>
         )}
       </div>
