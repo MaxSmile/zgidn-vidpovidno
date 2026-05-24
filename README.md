@@ -8,6 +8,8 @@ An entertaining, full-stack web application that takes mundane, civilian everyda
 
 Built with **Astro**, **React**, **Tailwind CSS**, and powered by the highly efficient **Google Gemini 2.5 Flash** API via Google AI Studio's free tier.
 
+![Preview of Zgidno-Vidpovidno](sample.png)
+
 ---
 
 ## 🚀 Features
