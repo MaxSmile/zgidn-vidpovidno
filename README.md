@@ -1,101 +1,162 @@
 # Zgidno-Vidpovidno (Згідно-Відповідно) 🪖
 
-Just a quick pet project
+## Ukrainian / English
 
-> **Automated Military Bureaucracy Translator (Програмний комплекс автоматизації бюрократії v2.4)**
+**UA:** Короткий pet project для перетворення буденних фраз на абсурдно-бюрократичні військові рапорти.
 
-An entertaining, full-stack web application that takes mundane, civilian everyday phrases (e.g., *"the dog peed on the router"*, *"I'm going to sleep"*) and translates them into absurdly over-engineered, formal, and deadpan military reports (**Рапорти**) matching the exact tone of Ukrainian army paperwork.
+**EN:** A small pet project that turns everyday phrases into absurdly bureaucratic military reports.
 
-Built with **Astro**, **React**, **Tailwind CSS**, and powered by the highly efficient **Google Gemini 2.5 Flash** API via Google AI Studio's free tier.
+> **UA:** Автоматизований Перекладач Військової Бюрократії v2.4.0
+>
+> **EN:** Automated Military Bureaucracy Translator v2.4.0
 
-![Preview of Zgidno-Vidpovidno](sample.png)
+**UA:** Додаток бере звичайні українські фрази, наприклад «Старлінк обісцяли собаки» або «Забув пароль від пошти», і перетворює їх на формальні, гротескно-офіційні рапорти у стилі службового документообігу ЗСУ.
 
----
+**EN:** The app takes ordinary Ukrainian phrases, such as “The dog peed on the router” or “I forgot my email password,” and turns them into formal, over-engineered reports in the style of Ukrainian military paperwork.
 
-## 🚀 Features
+**UA:** Побудовано на **Astro**, **React**, **Tailwind CSS** та будь-якій LLM, що нормально працює з українською. У цьому репозиторії зараз використовується **Google Gemini 2.5 Flash** через Cloudflare-proxied backend і з повагою до безкоштовної квоти.
 
-* **Multi-Branch Simulation:** Dynamically adapts jargon, regulations, and approval comments based on 5 different military branches (Signal & Cyber Security, Land Forces, Air Force, Navy, Unmanned Systems).
-* **Structured JSON Output:** The core AI engine outputs precise JSON payloads containing the report, funny custom regulations, operational codes, and simulated electronic document management approvals.
-* **Tactical Cyberpunk UI:** A fully responsive, flat-line design utilizing a dark-green terminal aesthetics (`font-mono`, pulsing status badges, and custom watermarks).
-* **Few-Shot AI Accuracy:** Pre-trained with 40+ production-grade translation examples to ensure robust contextual understanding without hallucination.
+**EN:** Built with **Astro**, **React**, **Tailwind CSS**, and any LLM that handles Ukrainian well. This repo currently uses **Google Gemini 2.5 Flash** through a Cloudflare-proxied backend and keeps free-tier usage in mind.
 
----
-
-## 🛠️ Tech Stack
-
-* **Framework:** [Astro](https://astro.build/) (Hybrid Server-Side Rendering / Static)
-* **UI Library:** [React.js](https://react.dev/) + [TypeScript](https://www.typescript.org/)
-* **Styling:** [Tailwind CSS](https://tailwindcss.com/)
-* **AI Engine:** [Google Generative AI SDK](https://github.com/google/generative-ai-js) (`gemini-2.5-flash`)
-* **Deployment:** [Firebase Hosting & App Hosting / Cloud Functions](https://firebase.google.com/)
+![Preview / Прев’ю](public/sample.png)
 
 ---
 
-## ⚡ Quick Start
+## Features / Можливості
 
-### 1. Clone the repository
+* **UA:** Підтримка 5 напрямків служби з адаптацією термінології, резолюцій та погоджень.
+* **EN:** Support for 5 military branches with adaptive terminology, resolutions, and approvals.
+* **UA:** Структурований JSON-вихід для чистої інтеграції в UI.
+* **EN:** Structured JSON output for clean UI integration.
+* **UA:** Темний технічний стиль із термінальним характером та акцентами в стилі військового документообігу.
+* **EN:** Dark technical styling with a terminal-like look and military-document aesthetics.
+* **UA:** Few-shot приклади для стабільнішого й точнішого тексту.
+* **EN:** Few-shot examples for more stable and accurate text generation.
+
+---
+
+## Tech Stack / Стек
+
+* **Framework / Фреймворк:** [Astro](https://astro.build/) (Static site)
+* **UI Library / Бібліотека UI:** [React](https://react.dev/) + [TypeScript](https://www.typescriptlang.org/)
+* **Styling / Стилі:** [Tailwind CSS](https://tailwindcss.com/)
+* **AI Engine / ШІ-движок:** Any Ukrainian-capable LLM / Будь-яка LLM, що працює з українською; current setup uses `gemini-2.5-flash`
+* **Deployment / Деплой:** [Firebase Hosting & Cloud Functions](https://firebase.google.com/)
+
+---
+
+## Quick Start / Швидкий старт
+
+### 1. Clone the repository / Клонувати репозиторій
+
 ```bash
-git clone [https://github.com/your-username/zgidno-vidpovidno.git](https://github.com/your-username/zgidno-vidpovidno.git)
+git clone https://github.com/your-username/zgidno-vidpovidno.git
 cd zgidno-vidpovidno
-2. Install dependencies
-Bash
+```
+
+### 2. Install dependencies / Встановити залежності
+
+```bash
 npm install
-3. Environment Setup
-Create a .env file in the root directory and append your Google AI Studio API key:
+```
 
-Code snippet
-GEMINI_API_KEY="your_free_ai_studio_gemini_api_key"
-4. Run Locally
-Bash
+### 3. Environment setup / Налаштувати середовище
+
+Create a `.env` file in the project root and add the backend secret required by your chosen LLM provider.
+
+Створіть файл `.env` у корені проєкту та додайте секрет бекенда, потрібний для обраного провайдера LLM.
+
+```bash
+LLM_API_KEY="your_backend_secret"
+```
+
+### 4. Run locally / Запустити локально
+
+```bash
 npm run dev
-Open http://localhost:4321 to view the application in your local environment.
+```
 
-🇺🇦 Документація та Логіка Проєкту (Ukrainian Guide)
-🧠 Як це працює (Архітектура)
-Додаток побудований без використання важких зовнішніх бекенд-платформ. Вся логіка безпечно обробляється всередині Astro Server Endpoints (API routes), що унеможливлює витік вашого приватного GEMINI_API_KEY на клієнтську сторону.
+Open http://localhost:4321 in your browser.
 
-Користувач вводить фразу (наприклад, "Забув пароль від пошти") та обирає рід військ.
+Відкрийте http://localhost:4321 у браузері.
 
-Фронтенд (React-компонент Translator.tsx) відправляє POST-запит на внутрішній ендпоінт /api/translate.
+---
 
-Astro-сервер підхоплює запит, ініціалізує модель gemini-2.5-flash, підставляє відповідний System Prompt та масив готових прикладів із бази даних.
+## How it works / Як це працює
 
-Gemini повертає строго валідований об'єкт JSON, який миттєво рендериться на фронтенді у вигляді військового бланка зі штампами.
+**UA:** Фронтенд надсилає фразу на внутрішній API-ендпоінт `/api/translate`, після чого Astro-сервер підтягує модель Gemini, вибірку прикладів та формує валідний JSON для UI.
 
-📋 Структура Промпту та API Даних
-Нейромережа навчена повертати не просто сухий текст, а структурований JSON для чистої інтеграції в UI без використання регулярних виразів (RegEx).
+**EN:** The frontend sends the phrase to the internal `/api/translate` endpoint, then the Astro server loads Gemini, injects example data, and returns valid JSON for the UI.
 
-Специфікація вихідного об'єкта:
+**UA:** Поля `report`, `resolution`, `order`, `approvers`, `regulation`, `authorized_by` та `operation_code` імітують структуру реального службового документа.
 
-JSON
+**EN:** The `report`, `resolution`, `order`, `approvers`, `regulation`, `authorized_by`, and `operation_code` fields simulate a real service document structure.
+
+**UA:** Якщо фраза містить згадку про тварин, у список погоджувачів автоматично додається Начальник кінологічної служби.
+
+**EN:** If the phrase mentions animals, the approvals list automatically includes the Head of the K9 Service.
+
+**UA:** Уся бізнес-логіка зараз живе у фронтенді, тому розширювати роди військ і лексикон можна без складної серверної роботи.
+
+**EN:** The business logic currently lives in the frontend, so adding more branches or expanding the lexicon is straightforward.
+
+---
+
+## Prompt and API structure / Структура промпту та API
+
+```json
 {
-  "report": "ДІЙСНИМ ДОПОВІДАЮ: особовий склад чергової зміни... [Основний текст рапорту]",
-  "resolution": "По факту події... призначити службове розслідування... Контроль покласти на...",
-  "order": "Наказ довести до особового складу... Контроль залишаю за собою.",
+  "report": "ДІЙСНИМ ДОПОВІДАЮ: ...",
+  "resolution": "...",
+  "order": "...",
   "approvers": [
-    { "role": "Начальник служби РХБЗ", "status": "ПРИЗНАЧЕНО СЛУЖБОВЕ РОЗСЛІДУВАННЯ" }
+    { "role": "...", "status": "..." }
   ],
-  "regulation": "Стаття 404 Тимчасового кодексу протидії...",
-  "authorized_by": "Командир військової частини",
-  "operation_code": "КОД-ГІДРАНТ-СПИРТ-200"
+  "regulation": "...",
+  "authorized_by": "...",
+  "operation_code": "..."
 }
-💥 Правила генерації контенту для розробника
-ДІЙСНИМ: Кожен головний рапорт (report) обов'язково починається зі слова "ДІЙСНИМ ДОПОВІДАЮ".
+```
 
-Контекст СЕД (Системи електронного документообігу): Поля resolution, order та масив approvers імітують коментарі реальних посадових осіб армійських чатів чи внутрішніх систем управління (наприклад, резолюції від користувачів k.vernadska або gonezales1978). Якщо подія пов'язана із тваринами — система автоматично підтягує в погоджувачі Начальника кінологічної служби.
+**UA:** `report` завжди починається зі слів «ДІЙСНИМ ДОПОВІДАЮ».
 
-🚀 Швидкий деплой на Firebase
-Проєкт готовий до безкоштовного розгортання на Firebase (Spark Tier). Для деплою серверного рендерингу (SSR) переконайтеся, що в Astro підключено відповідний адаптер.
+**EN:** `report` always starts with “ДІЙСНИМ ДОПОВІДАЮ”.
 
-Bash
-# Авторизація та ініціалізація
+**UA:** `resolution`, `order` і `approvers` стилізовані під внутрішні погодження та службові коментарі.
+
+**EN:** `resolution`, `order`, and `approvers` are styled like internal approvals and service comments.
+
+---
+
+## Deployment / Деплой
+
+**UA:** Проєкт можна розгортати на Firebase Hosting як статичний сайт.
+
+**EN:** The project can be deployed on Firebase Hosting as a static site.
+
+**UA:** Не зберігайте клієнтські ключі в браузері. Якщо ви міняєте LLM, замініть проксі на прямі виклики до API провайдера на рівні бекенда або серверного ендпоінта.
+
+**EN:** Do not expose client-side keys in the browser. If you switch LLMs, replace the proxy with direct calls to the provider API endpoint from the backend or server endpoint.
+
+```bash
 firebase login
 firebase init
-
-# Налаштування секретів для Cloud Functions (якщо використовуються)
-firebase functions:secrets:set GEMINI_API_KEY="твоє_реальне_значення_ключа"
-
-# Запуск деплою
+firebase functions:secrets:set GEMINI_API_KEY="your_real_key"
 firebase deploy
-📝 License
-This project is open-source and available under the MIT License. Feel free to use it to clean up your local repo or automate your own bureaucratic tasks! 😂
+```
+
+---
+
+## License / Ліцензія
+
+**UA:** Проєкт розповсюджується під ліцензією MIT.
+
+**EN:** This project is available under the MIT License.
+
+---
+
+## Contributing / Внесок
+
+**UA:** Contrib welcome. Можна додати більше родів військ, розширити лексикон або підсилити генерацію новими прикладами. Оскільки основна логіка зараз у фронтенді, такі зміни мають бути відносно простими.
+
+**EN:** Contributions are welcome. You can add more branches, expand the lexicon, or improve generation with new examples. Since most of the logic currently lives in the frontend, these changes should be relatively easy.
