@@ -44,6 +44,76 @@ const PRESETS = [
 const APP_VERSION = "v2.4.0-CLOUDFLARE";
 const WORKER_URL = "https://zgidno-vidpovidno.vasilkoff-dev.workers.dev/";
 
+type RateLimitData = {
+  lastGenerated: number;
+  history: number[];
+};
+
+const checkRateLimit = (): { allowed: boolean; message?: string } => {
+  if (typeof window === "undefined") return { allowed: true };
+
+  const now = Date.now();
+  const rawData = localStorage.getItem("gemini_rate_limit");
+  let data: RateLimitData = { lastGenerated: 0, history: [] };
+
+  if (rawData) {
+    try {
+      data = JSON.parse(rawData);
+    } catch {
+      // Ignore
+    }
+  }
+
+  const oneHourAgo = now - 60 * 60 * 1000;
+  data.history = (data.history || []).filter(t => t > oneHourAgo);
+
+  // 1. Check 1-minute rule
+  if (data.lastGenerated && now - data.lastGenerated < 60 * 1000) {
+    const remainingSecs = Math.ceil((60 * 1000 - (now - data.lastGenerated)) / 1000);
+    return {
+      allowed: false,
+      message: `АНТИСПАМ-ФІЛЬТР: ПЕРЕВИЩЕНО ЧАСТОТУ. Наступна подача дозволена через ${remainingSecs} сек.`
+    };
+  }
+
+  // 2. Check 15-per-hour rule
+  if (data.history.length >= 15) {
+    const oldestTimestamp = data.history[0];
+    const waitTimeMs = oldestTimestamp + 60 * 60 * 1000 - now;
+    const remainingMins = Math.ceil(waitTimeMs / (60 * 1000));
+    return {
+      allowed: false,
+      message: `АНТИСПАМ-ФІЛЬТР: ЛІМІТ ПЕРЕВИЩЕНО (макс. 15/год). Спробуйте через ${remainingMins} хв.`
+    };
+  }
+
+  return { allowed: true };
+};
+
+const updateRateLimit = () => {
+  if (typeof window === "undefined") return;
+
+  const now = Date.now();
+  const rawData = localStorage.getItem("gemini_rate_limit");
+  let data: RateLimitData = { lastGenerated: 0, history: [] };
+
+  if (rawData) {
+    try {
+      data = JSON.parse(rawData);
+    } catch {
+      // Ignore
+    }
+  }
+
+  const oneHourAgo = now - 60 * 60 * 1000;
+  data.history = (data.history || []).filter(t => t > oneHourAgo);
+
+  data.lastGenerated = now;
+  data.history.push(now);
+
+  localStorage.setItem("gemini_rate_limit", JSON.stringify(data));
+};
+
 export default function Translator() {
   const [activeBranch, setActiveBranch] = useState<Branch>("СБС");
   const [inputText, setInputText] = useState("");
@@ -53,6 +123,7 @@ export default function Translator() {
   const [loadingStep, setLoadingStep] = useState(0);
   const [docNumber, setDocNumber] = useState("");
   const [docDate, setDocDate] = useState("");
+  const [rateError, setRateError] = useState<string | null>(null);
 
   const isInputReady = inputText.trim().length > 0;
 
@@ -91,6 +162,14 @@ export default function Translator() {
 
   const runTranslation = async () => {
     if (!isInputReady || isLoading) return;
+
+    // Check Rate Limiting before execution
+    const limitCheck = checkRateLimit();
+    if (!limitCheck.allowed) {
+      setRateError(limitCheck.message || "АНТИСПАМ-ФІЛЬТР: ДОСТУП ТИМЧАСОВО ОБМЕЖЕНО.");
+      return;
+    }
+    setRateError(null);
 
     setIsLoading(true);
     setActionNotice(null);
@@ -212,6 +291,9 @@ Output JSON:
       const text = data.candidates[0].content.parts[0].text;
       const parsedResponse = JSON.parse(text.trim()) as TranslationResponse;
       setReportData(parsedResponse);
+      
+      // Update Rate Limit data upon successful generation
+      updateRateLimit();
     } catch (error: any) {
       console.error(error);
       setReportData({
@@ -425,6 +507,11 @@ ${approversStr}
               {!isInputReady && (
                 <p className="mt-3 text-[0.68rem] uppercase tracking-[0.1em] text-[#ef4444] flex items-center gap-1.5">
                   ⚠️ ВВЕДІТЬ ОПИС ДЛЯ ІНІЦІАЛІЗАЦІЇ.
+                </p>
+              )}
+              {rateError && (
+                <p className="mt-3 text-[0.68rem] uppercase tracking-[0.1em] text-red-400 flex items-center gap-1.5">
+                  ⚠️ {rateError}
                 </p>
               )}
             </section>
