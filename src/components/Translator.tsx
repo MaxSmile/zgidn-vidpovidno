@@ -56,7 +56,7 @@ export default function Translator() {
 
   const isInputReady = inputText.trim().length > 0;
 
-  // Generate unique document number and date when report changes
+  // Generate initial document number and date on mount
   useEffect(() => {
     const rand = Math.floor(1000 + Math.random() * 9000);
     const now = new Date();
@@ -68,7 +68,7 @@ export default function Translator() {
     
     setDocNumber(`ЗВ-${year}/${month}/${day}-${rand}`);
     setDocDate(`${day}.${month}.${year} о ${hours}:${minutes}`);
-  }, [reportData]);
+  }, []);
 
   // Loading steps text rotation
   useEffect(() => {
@@ -94,6 +94,22 @@ export default function Translator() {
 
     setIsLoading(true);
     setActionNotice(null);
+
+    // Generate dynamic date/time for the actual translation event
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    const now = new Date();
+    const day = String(now.getDate()).padStart(2, '0');
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const year = now.getFullYear();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    
+    const currentDocNumber = `ЗВ-${year}/${month}/${day}-${rand}`;
+    const currentDocDate = `${day}.${month}.${year} о ${hours}:${minutes}`;
+    const currentDateTimeStr = `${day}.${month}.${year} ${hours}:${minutes}`;
+    
+    setDocNumber(currentDocNumber);
+    setDocDate(currentDocDate);
 
     try {
       // Map UI branch names to vocabulary.json branch names
@@ -128,13 +144,14 @@ Rules:
 1. The output MUST be a valid JSON object matching the schema below. Do not output markdown block wrappers (like \`\`\`json) inside the JSON response itself.
 2. The "report" field MUST start with the word "ДІЙСНИМ ДОПОВІДАЮ: ".
 3. Use highly formal, passive, bureaucratic Ukrainian military jargon (e.g. "особовий склад", "несанкціоноване втручання", "деградація цифрового контуру", "вилучення", "контроль за виконанням покласти на").
-4. "resolution" must represent a formal command or resolution from a commanding officer addressing the situation in a bureaucratic way.
-5. "order" must represent a directive to be distributed to the staff.
-6. "approvers" is an array of 2-3 officers. Each object must have a "role" and "status". Keep status uppercase (e.g. "ПОГОДЖЕНО", "В ОЧІКУВАННІ", "ЗАТВЕРДЖЕНО", "КОНТРОЛЬ ВСТАНОВЛЕНО").
-7. If the input mentions animals (dogs, cats, birds, etc.), you MUST automatically include "Начальник кінологічної служби" in the "approvers" list.
-8. "regulation" must cite a funny, fictional, but very official-sounding military regulation (e.g. "Стаття X Настанови з Y").
-9. "authorized_by" should be a title like "Командир військової частини" or "Начальник зв'язку" optionally signed with a username like "k.vernadska" or "gonezales1978".
-10. "operation_code" should be a funny military code starting with "КОД-" (e.g. "КОД-ГІДРАНТ-СПИРТ-200").
+4. If appropriate, incorporate the exact date and time of the incident (provided in the user request: ${currentDateTimeStr}) into the report text (e.g., "станом на ${day}.${month}.${year} року", "о ${hours}:${minutes} відбувся інцидент...").
+5. "resolution" must represent a formal command or resolution from a commanding officer addressing the situation in a bureaucratic way.
+6. "order" must represent a directive to be distributed to the staff.
+7. "approvers" is an array of 2-3 officers. Each object must have a "role" and "status". Keep status uppercase, and append the date and time of approval using the provided date (e.g., "ПОГОДЖЕНО ${day}.${month}.${year} о ${hours}:${minutes}", "КОНТРОЛЬ ВСТАНОВЛЕНО ${day}.${month}.${year} о ${hours}:${minutes}").
+8. If the input mentions animals (dogs, cats, birds, etc.), you MUST automatically include "Начальник кінологічної служби" in the "approvers" list.
+9. "regulation" must cite a funny, fictional, but very official-sounding military regulation (e.g. "Стаття X Настанови з Y").
+10. "authorized_by" should be a title like "Командир військової частини" or "Начальник зв'язку" optionally signed with a username like "k.vernadska" or "gonezales1978".
+11. "operation_code" should be a funny military code starting with "КОД-" (e.g. "КОД-ГІДРАНТ-СПИРТ-200").
 
 JSON Schema:
 {
@@ -156,6 +173,7 @@ ${examplesPrompt}
 
 Now, translate the following request:
 Branch: ${targetBranch}
+Current Date & Time of Incident: ${currentDateTimeStr}
 Input: "${inputText}"
 Output JSON:
 `;
