@@ -24,12 +24,20 @@ type TranslationResponse = {
   operation_code: string;
 };
 
+type GenerationLength = "usual" | "extraLong" | "xxl";
+
 const BRANCHES: Branch[] = [
   "СБС",
   "Повітряні Сили",
   "Війська Зв'язку",
   "Сухопутні Війська",
   "ВМС",
+];
+
+const GENERATION_LENGTH_OPTIONS: { value: GenerationLength; label: string; maxOutputTokens: number }[] = [
+  { value: "usual", label: "Usual", maxOutputTokens: 1024 },
+  { value: "extraLong", label: "Extra Long", maxOutputTokens: 2048 },
+  { value: "xxl", label: "XXL", maxOutputTokens: 4096 },
 ];
 
 const PRESETS = [
@@ -116,6 +124,7 @@ const updateRateLimit = () => {
 
 export default function Translator() {
   const [activeBranch, setActiveBranch] = useState<Branch>("СБС");
+  const [generationLength, setGenerationLength] = useState<GenerationLength>("usual");
   const [inputText, setInputText] = useState("");
   const [reportData, setReportData] = useState<TranslationResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -257,6 +266,10 @@ Input: "${inputText}"
 Output JSON:
 `;
 
+      const selectedLengthOption =
+        GENERATION_LENGTH_OPTIONS.find((option) => option.value === generationLength) ||
+        GENERATION_LENGTH_OPTIONS[0];
+
       const payload = {
         contents: [
           {
@@ -268,7 +281,8 @@ Output JSON:
           parts: [{ text: systemPrompt }]
         },
         generationConfig: {
-          responseMimeType: "application/json"
+          responseMimeType: "application/json",
+          maxOutputTokens: selectedLengthOption.maxOutputTokens
         }
       };
 
@@ -454,6 +468,42 @@ ${approversStr}
                       {isActive && <div className="absolute left-0 top-0 bottom-0 w-1 bg-[#00ff66]" />}
                       {branch}
                     </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            {/* Generation Length */}
+            <section className="rounded border border-[#22321e] bg-[#0f1510] p-4 sm:p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <FileText size={14} className="text-[#00ff66]" />
+                <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-[#00ff66]">
+                  Довжина генерації
+                </h2>
+              </div>
+              <div className="space-y-2">
+                {GENERATION_LENGTH_OPTIONS.map((option) => {
+                  const isActive = generationLength === option.value;
+                  return (
+                    <label
+                      key={option.value}
+                      className={`flex items-center justify-between border px-3 py-2.5 text-xs uppercase tracking-[0.1em] cursor-pointer transition-all ${
+                        isActive
+                          ? "border-[#00ff66] bg-[#00ff66]/10 text-[#00ff66]"
+                          : "border-[#22321e] bg-[#070a08]/50 text-[#94aa8c] hover:border-[#00ff66]/50 hover:text-[#00ff66]"
+                      }`}
+                    >
+                      <span className="font-semibold">{option.label}</span>
+                      <input
+                        type="radio"
+                        name="generation-length"
+                        value={option.value}
+                        checked={isActive}
+                        onChange={() => setGenerationLength(option.value)}
+                        disabled={isLoading}
+                        className="h-3.5 w-3.5 accent-[#00ff66]"
+                      />
+                    </label>
                   );
                 })}
               </div>
