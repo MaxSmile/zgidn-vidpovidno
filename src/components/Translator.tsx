@@ -24,7 +24,7 @@ type TranslationResponse = {
   operation_code: string;
 };
 
-type GenerationLength = "usual" | "extraLong" | "xxl";
+type GenerationLength = "s" | "m" | "l" | "xl" | "xxl";
 
 const BRANCHES: Branch[] = [
   "СБС",
@@ -34,10 +34,17 @@ const BRANCHES: Branch[] = [
   "ВМС",
 ];
 
-const GENERATION_LENGTH_OPTIONS: { value: GenerationLength; label: string; maxOutputTokens: number }[] = [
-  { value: "usual", label: "Usual", maxOutputTokens: 1024 },
-  { value: "extraLong", label: "Extra Long", maxOutputTokens: 2048 },
-  { value: "xxl", label: "XXL", maxOutputTokens: 4096 },
+const GENERATION_LENGTH_OPTIONS: {
+  value: GenerationLength;
+  label: string;
+  minWords: number;
+  maxOutputTokens: number;
+}[] = [
+  { value: "s", label: "S", minWords: 100, maxOutputTokens: 512 },
+  { value: "m", label: "M", minWords: 200, maxOutputTokens: 768 },
+  { value: "l", label: "L", minWords: 300, maxOutputTokens: 1024 },
+  { value: "xl", label: "XL", minWords: 400, maxOutputTokens: 1536 },
+  { value: "xxl", label: "XXL", minWords: 500, maxOutputTokens: 2048 },
 ];
 
 const PRESETS = [
@@ -55,6 +62,50 @@ const WORKER_URL = "https://zgidno-vidpovidno.vasilkoff-dev.workers.dev/";
 type RateLimitData = {
   lastGenerated: number;
   history: number[];
+};
+
+type ProviderResponse = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{
+        text?: string;
+      }>;
+    };
+  }>;
+  cfResponse?: {
+    choices?: Array<{
+      message?: {
+        content?: string;
+      };
+    }>;
+  };
+  choices?: Array<{
+    message?: {
+      content?: string;
+    };
+  }>;
+};
+
+const extractGeneratedText = (data: ProviderResponse): string => {
+  return (
+    data.candidates?.[0]?.content?.parts?.[0]?.text ||
+    data.cfResponse?.choices?.[0]?.message?.content ||
+    data.choices?.[0]?.message?.content ||
+    ""
+  );
+};
+
+const normalizeResponseText = (text: string): string => {
+  const trimmed = text.trim();
+
+  if (trimmed.startsWith("```")) {
+    return trimmed
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```$/, "")
+      .trim();
+  }
+
+  return trimmed;
 };
 
 const checkRateLimit = (): { allowed: boolean; message?: string } => {
@@ -75,9 +126,9 @@ const checkRateLimit = (): { allowed: boolean; message?: string } => {
   const oneHourAgo = now - 60 * 60 * 1000;
   data.history = (data.history || []).filter(t => t > oneHourAgo);
 
-  // 1. Check 1-minute rule
-  if (data.lastGenerated && now - data.lastGenerated < 60 * 1000) {
-    const remainingSecs = Math.ceil((60 * 1000 - (now - data.lastGenerated)) / 1000);
+  // 1. Check 30-second rule
+  if (data.lastGenerated && now - data.lastGenerated < 30 * 1000) {
+    const remainingSecs = Math.ceil((30 * 1000 - (now - data.lastGenerated)) / 1000);
     return {
       allowed: false,
       message: `АНТИСПАМ-ФІЛЬТР: ПЕРЕВИЩЕНО ЧАСТОТУ. Наступна подача дозволена через ${remainingSecs} сек.`
@@ -124,7 +175,7 @@ const updateRateLimit = () => {
 
 export default function Translator() {
   const [activeBranch, setActiveBranch] = useState<Branch>("СБС");
-  const [generationLength, setGenerationLength] = useState<GenerationLength>("usual");
+  const [generationLength, setGenerationLength] = useState<GenerationLength>("s");
   const [inputText, setInputText] = useState("");
   const [reportData, setReportData] = useState<TranslationResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -164,7 +215,7 @@ export default function Translator() {
 
   const loadingMessages = [
     "НАДСИЛАННЯ ПАКЕТУ ДАНИХ КРІЗЬ CLOUDFLARE SHIELD...",
-    "ОБРОБКА ЗАПИТУ ШТРУМЕЛЬ-ІНТЕЛЕКТОМ (GEMINI 2.5 FLASH)...",
+    "ОБРОБКА ЗАПИТУ ШТРУМЕЛЬ-ІНТЕЛЕКТОМ (LLM)...",
     "ФОРМУВАННЯ СТРУКТУРОВАНОГО JSON ПАКЕТУ ЗГІДНО СТАНДАРТІВ...",
     "АКТИВАЦІЯ СЕД ТА СИМУЛЯЦІЯ ПОСАДОВИХ ОСІБ..."
   ];
@@ -224,6 +275,10 @@ Output JSON:
 ${JSON.stringify(ex.output, null, 2)}
 `).join('\n');
 
+      const selectedLengthOption =
+        GENERATION_LENGTH_OPTIONS.find((option) => option.value === generationLength) ||
+        GENERATION_LENGTH_OPTIONS[0];
+
       const systemPrompt = `
 You are the core AI translation engine of "Програмний комплекс автоматизації бюрократії v2.4" for the Armed Forces of Ukraine (ЗСУ).
 Your job is to translate mundane, civilian everyday phrases in Ukrainian into absurdly over-engineered, formal, deadpan military reports ("Рапорти") that match the exact tone of Ukrainian army paperwork and electronic document management (СЕД).
@@ -240,6 +295,8 @@ Rules:
 9. "regulation" must cite a funny, fictional, but very official-sounding military regulation (e.g. "Стаття X Настанови з Y").
 10. "authorized_by" should be a title like "Командир військової частини" or "Начальник зв'язку" optionally signed with a username like "k.vernadska" or "gonezales1978".
 11. "operation_code" should be a funny military code starting with "КОД-" (e.g. "КОД-ГІДРАНТ-СПИРТ-200").
+12. The selected generation size is a minimum word target for the full JSON response, counting all text fields together. For this request, target at least ${selectedLengthOption.minWords} words total.
+13. Prefer natural expansion of the report, resolution, and order to satisfy the target. Avoid filler, repetition, or placeholders just to pad length.
 
 JSON Schema:
 {
@@ -262,13 +319,11 @@ ${examplesPrompt}
 Now, translate the following request:
 Branch: ${targetBranch}
 Current Date & Time of Incident: ${currentDateTimeStr}
+Selected Generation Size: ${selectedLengthOption.label}
+Minimum Word Target: ${selectedLengthOption.minWords} words total across the JSON response
 Input: "${inputText}"
 Output JSON:
 `;
-
-      const selectedLengthOption =
-        GENERATION_LENGTH_OPTIONS.find((option) => option.value === generationLength) ||
-        GENERATION_LENGTH_OPTIONS[0];
 
       const payload = {
         contents: [
@@ -296,14 +351,14 @@ Output JSON:
         throw new Error("Translation request via Cloudflare Worker failed");
       }
 
-      const data = await response.json();
-      
-      if (!data.candidates?.[0]?.content?.parts?.[0]?.text) {
-        throw new Error("Invalid response structure from Gemini API");
+      const data = (await response.json()) as ProviderResponse;
+
+      const text = extractGeneratedText(data);
+      if (!text) {
+        throw new Error("Invalid response structure from provider API");
       }
 
-      const text = data.candidates[0].content.parts[0].text;
-      const parsedResponse = JSON.parse(text.trim()) as TranslationResponse;
+      const parsedResponse = JSON.parse(normalizeResponseText(text)) as TranslationResponse;
       setReportData(parsedResponse);
       
       // Update Rate Limit data upon successful generation
@@ -478,7 +533,7 @@ ${approversStr}
               <div className="flex items-center gap-2 mb-3">
                 <FileText size={14} className="text-[#00ff66]" />
                 <h2 className="text-xs uppercase tracking-[0.2em] font-semibold text-[#00ff66]">
-                  Довжина генерації
+                  Довжина генерації / Minimum words
                 </h2>
               </div>
               <div className="space-y-2">
@@ -494,6 +549,9 @@ ${approversStr}
                       }`}
                     >
                       <span className="font-semibold">{option.label}</span>
+                      <span className="text-[0.7rem] normal-case tracking-normal text-inherit/80">
+                        {option.minWords}+ words
+                      </span>
                       <input
                         type="radio"
                         name="generation-length"
