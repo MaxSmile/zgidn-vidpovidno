@@ -102,6 +102,22 @@ Open http://localhost:4321 in your browser.
 
 ---
 
+## Logic and implementation approach / Логіка та підхід до реалізації
+
+**UA:** Додаток працює як легкий конвеєр із чіткими етапами: введення фрази, підготовка контексту (рід військ + few-shot приклади), генерація структурованої відповіді LLM, валідація JSON-структури та відображення в UI.
+
+**EN:** The app follows a lightweight pipeline: phrase input, context preparation (branch selection + few-shot examples), LLM generation of structured output, JSON-shape validation, and UI rendering.
+
+**UA:** Основна ідея реалізації — тримати формат виходу стабільним (`report`, `resolution`, `order`, `approvers`, `regulation`, `authorized_by`, `operation_code`), а стиль тексту адаптувати через промпт та приклади. Це дозволяє міняти модель або тональність без переробки інтерфейсу.
+
+**EN:** The implementation keeps output format stable (`report`, `resolution`, `order`, `approvers`, `regulation`, `authorized_by`, `operation_code`) while adapting tone through prompt design and examples. This makes it easy to swap models or tune style without rewriting the UI.
+
+**UA:** З практичної точки зору це дає просте масштабування: нові роди військ або словник додаються як дані/правила, а не як складна серверна логіка.
+
+**EN:** Practically, this enables simple scaling: new branches or vocabulary are added as data/rules rather than complex backend logic.
+
+---
+
 ## Prompt and API structure / Структура промпту та API
 
 ```json
@@ -149,9 +165,11 @@ firebase deploy
 
 ## License / Ліцензія
 
-**UA:** Проєкт розповсюджується під ліцензією MIT.
+**UA:** Проєкт розповсюджується під ліцензією MIT — однією з найвільніших і найпоширеніших open source ліцензій.
 
-**EN:** This project is available under the MIT License.
+**EN:** This project is available under the MIT License, one of the most permissive and widely used open-source licenses.
+
+**UA/EN:** Повний текст ліцензії доступний у файлі [`LICENSE`](LICENSE).
 
 ---
 
