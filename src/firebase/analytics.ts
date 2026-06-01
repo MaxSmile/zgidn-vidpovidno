@@ -1,47 +1,25 @@
 import { logEvent, type Analytics } from "firebase/analytics";
 import { initializeClientAnalytics } from "./client";
 
-let analyticsInstance: Analytics | null = null;
+const getAnalytics = (): Promise<Analytics | null> => initializeClientAnalytics();
 
-const getAnalyticsInstance = (): Analytics | null => {
-  if (!analyticsInstance) {
-    analyticsInstance = initializeClientAnalytics() ?? null;
-  }
-  return analyticsInstance;
+const track = (eventName: string, params?: Record<string, unknown>) => {
+  getAnalytics().then((a) => {
+    if (a) logEvent(a, eventName, params);
+  });
 };
 
-export const trackGenerateAttempt = (branch: string, length: string) => {
-  const a = getAnalyticsInstance();
-  if (!a) return;
-  logEvent(a, "generate_attempt", { branch, length });
-};
+export const trackGenerateAttempt = (branch: string, length: string) =>
+  track("generate_attempt", { branch, length });
 
-export const trackGenerateSuccess = (branch: string, length: string, wordCount: number) => {
-  const a = getAnalyticsInstance();
-  if (!a) return;
-  logEvent(a, "generate_success", { branch, length, word_count: wordCount });
-};
+export const trackGenerateSuccess = (branch: string, length: string, wordCount: number) =>
+  track("generate_success", { branch, length, word_count: wordCount });
 
-export const trackGenerateError = (branch: string, length: string, errorMessage: string) => {
-  const a = getAnalyticsInstance();
-  if (!a) return;
-  logEvent(a, "generate_error", { branch, length, error_message: errorMessage.slice(0, 100) });
-};
+export const trackGenerateError = (branch: string, length: string, errorMessage: string) =>
+  track("generate_error", { branch, length, error_message: errorMessage.slice(0, 100) });
 
-export const trackRateLimitBlocked = () => {
-  const a = getAnalyticsInstance();
-  if (!a) return;
-  logEvent(a, "rate_limit_blocked");
-};
+export const trackRateLimitBlocked = () => track("rate_limit_blocked");
 
-export const trackCopyReport = () => {
-  const a = getAnalyticsInstance();
-  if (!a) return;
-  logEvent(a, "copy_report");
-};
+export const trackCopyReport = () => track("copy_report");
 
-export const trackShareReport = () => {
-  const a = getAnalyticsInstance();
-  if (!a) return;
-  logEvent(a, "share_report");
-};
+export const trackShareReport = () => track("share_report");

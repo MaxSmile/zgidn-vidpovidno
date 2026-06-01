@@ -1,5 +1,5 @@
 import { initializeApp } from "firebase/app";
-import { getAnalytics } from "firebase/analytics";
+import { getAnalytics, isSupported, type Analytics } from "firebase/analytics";
 
 const firebaseConfig = {
   apiKey: "AIzaSyC4rgjGmOmlsSbgivP7XnSqs7JqrJknBHk",
@@ -14,14 +14,18 @@ const firebaseConfig = {
 // Initialize Firebase
 export const app = initializeApp(firebaseConfig);
 
-// Initialize Analytics only in browser environment
-export const initializeClientAnalytics = () => {
-  if (typeof window !== "undefined" && firebaseConfig.measurementId) {
-    try {
-      return getAnalytics(app);
-    } catch (error) {
-      console.warn("Failed to initialize Firebase Analytics:", error);
-    }
+// Initialize Analytics only in browser environment, awaiting isSupported()
+let analyticsPromise: Promise<Analytics | null> | null = null;
+
+export const initializeClientAnalytics = (): Promise<Analytics | null> => {
+  if (typeof window === "undefined") return Promise.resolve(null);
+  if (!analyticsPromise) {
+    analyticsPromise = isSupported()
+      .then((supported) => (supported ? getAnalytics(app) : null))
+      .catch((error) => {
+        console.warn("Failed to initialize Firebase Analytics:", error);
+        return null;
+      });
   }
-  return null;
+  return analyticsPromise;
 };
