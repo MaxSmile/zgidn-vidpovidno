@@ -211,7 +211,7 @@ export const generateTranslation = async (params: GenerateTranslationParams): Pr
   });
 
   if (!response.ok) {
-    throw new Error("Translation request via Cloudflare Worker failed");
+    throw new Error(`Translation request via Cloudflare Worker failed (HTTP ${response.status})`);
   }
 
   const data = (await response.json()) as ProviderResponse;

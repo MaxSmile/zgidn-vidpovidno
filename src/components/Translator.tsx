@@ -17,6 +17,14 @@ import { checkRateLimit, updateRateLimit } from "./translator/rateLimit";
 import { createGatewayErrorResponse, formatReportForCopy } from "./translator/reportFormatting";
 import { countResponseWords, countWords } from "./translator/textMetrics";
 import type { Branch, GenerationLength, TranslationResponse } from "./translator/types";
+import {
+  trackCopyReport,
+  trackGenerateAttempt,
+  trackGenerateError,
+  trackGenerateSuccess,
+  trackRateLimitBlocked,
+  trackShareReport,
+} from "../firebase/analytics";
 
 export default function Translator() {
   const [activeBranch, setActiveBranch] = useState<Branch>("СБС");
@@ -66,6 +74,7 @@ export default function Translator() {
     const limitCheck = checkRateLimit();
     if (!limitCheck.allowed) {
       setRateError(limitCheck.message || "АНТИСПАМ-ФІЛЬТР: ДОСТУП ТИМЧАСОВО ОБМЕЖЕНО.");
+      trackRateLimitBlocked();
       return;
     }
 
@@ -76,6 +85,7 @@ export default function Translator() {
     setActionNotice(null);
     setDocNumber(documentMeta.docNumber);
     setDocDate(documentMeta.docDate);
+    trackGenerateAttempt(activeBranch, generationLength);
 
     try {
       const parsedResponse = await generateTranslation({
@@ -87,8 +97,11 @@ export default function Translator() {
 
       setReportData(parsedResponse);
       updateRateLimit();
+      trackGenerateSuccess(activeBranch, generationLength, countResponseWords(parsedResponse));
     } catch (error: unknown) {
       console.error(error);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      trackGenerateError(activeBranch, generationLength, errorMessage);
       setReportData(createGatewayErrorResponse());
     } finally {
       setIsLoading(false);
@@ -108,6 +121,7 @@ export default function Translator() {
         }),
       );
       setActionNotice(NOTICE_COPIED);
+      trackCopyReport();
     } catch {
       setActionNotice(NOTICE_COPY_FAILED);
     }
@@ -125,11 +139,13 @@ export default function Translator() {
       if (navigator.share) {
         await navigator.share(payload);
         setActionNotice(NOTICE_SHARED);
+        trackShareReport();
         return;
       }
 
       await navigator.clipboard.writeText(payload.text);
       setActionNotice(NOTICE_SHARE_FALLBACK);
+      trackShareReport();
     } catch {
       setActionNotice(NOTICE_SHARE_FAILED);
     }
