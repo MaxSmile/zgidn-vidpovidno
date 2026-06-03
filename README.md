@@ -14,7 +14,7 @@
 
 **EN:** The app takes ordinary Ukrainian phrases, such as “The dog peed on the router” or “I forgot my email password,” and turns them into formal, over-engineered reports in the style of Ukrainian military paperwork.
 
-**UA:** Побудовано на **Astro**, **React**, **Tailwind CSS** та будь-якій LLM, що нормально працює з українською. У цьому репозиторії зараз використовується Cloudflare-proxied backend і з повагою до безкоштовної квоти.
+**UA:** Побудовано на **Astro**, **React**, **Tailwind CSS** та будь-якій LLM, що нормально працює з українською. У цьому репозиторії зараз використовується Cloudflare-proxied backend з повагою до безкоштовної квоти.
 
 **EN:** Built with **Astro**, **React**, **Tailwind CSS**, and any LLM that handles Ukrainian well. This repo currently uses a Cloudflare-proxied backend and keeps free-tier usage in mind.
 
@@ -62,12 +62,13 @@ npm install
 
 ### 3. Environment setup / Налаштувати середовище
 
-Create a `.env` file in the project root and add the backend secret required by your chosen LLM provider.
+For local frontend work, no browser-side LLM key is required. The current app calls a Cloudflare Worker proxy configured in `src/components/translator/constants.ts`.
 
-Створіть файл `.env` у корені проєкту та додайте секрет бекенда, потрібний для обраного провайдера LLM.
+Для локальної роботи з фронтендом браузерний LLM-ключ не потрібен. Поточний додаток викликає Cloudflare Worker proxy, налаштований у `src/components/translator/constants.ts`.
 
 ```bash
-LLM_API_KEY="your_backend_secret"
+# src/components/translator/constants.ts
+WORKER_URL = "https://your-worker.example.workers.dev/"
 ```
 
 ### 4. Run locally / Запустити локально
@@ -84,9 +85,9 @@ Open http://localhost:4321 in your browser.
 
 ## How it works / Як це працює
 
-**UA:** Фронтенд надсилає фразу на внутрішній API-ендпоінт `/api/translate`, після чого Astro-сервер підтягує LLM, вибірку прикладів та формує валідний JSON для UI.
+**UA:** Фронтенд надсилає фразу на Cloudflare Worker proxy, після чого LLM отримує промпт, вибірку прикладів та повертає валідний JSON для UI.
 
-**EN:** The frontend sends the phrase to the internal `/api/translate` endpoint, then the Astro server loads an LLM, injects example data, and returns valid JSON for the UI.
+**EN:** The frontend sends the phrase to a Cloudflare Worker proxy, then the LLM receives the prompt, example data, and returns valid JSON for the UI.
 
 **UA:** Поля `report`, `resolution`, `order`, `approvers`, `regulation`, `authorized_by` та `operation_code` імітують структуру реального службового документа.
 

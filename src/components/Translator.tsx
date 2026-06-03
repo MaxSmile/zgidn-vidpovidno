@@ -26,6 +26,74 @@ import {
   trackShareReport,
 } from "../firebase/analytics";
 
+function SupportUkraineBanner() {
+  const [isHover, setIsHover] = useState(false);
+
+  return (
+    <div
+      onMouseEnter={() => setIsHover(true)}
+      onMouseLeave={() => setIsHover(false)}
+      onFocusCapture={() => setIsHover(true)}
+      onBlurCapture={() => setIsHover(false)}
+      style={{
+        position: "relative",
+        left: 0,
+        top: 0,
+        right: 0,
+        background: "#000",
+        display: "flex",
+        justifyContent: "center",
+        padding: "5px",
+        zIndex: 10000,
+        fontFamily: "arial",
+      }}
+    >
+      <a
+        href="https://u24.gov.ua"
+        target="_blank"
+        rel="noopener noreferrer"
+        title="Donate to support freedom."
+        style={{ display: "flex", alignItems: "center", textDecoration: "none" }}
+      >
+        <div
+          role="img"
+          aria-label="Flag of Ukraine"
+          style={{ height: "25px", marginRight: "10px" }}
+        >
+          <div style={{ width: "40px", height: "12.5px", background: "#005BBB" }} />
+          <div style={{ width: "40px", height: "12.5px", background: "#FFD500" }} />
+        </div>
+        <div style={{ color: "white", fontSize: "12px", lineHeight: "25px" }}>
+          Donate to support freedom.
+        </div>
+      </a>
+      <a
+        href="https://www.npmjs.com/package/react-support-ukraine-banner"
+        target="_blank"
+        rel="noopener noreferrer"
+        aria-label="Get the same banner on npm"
+        title="Get the same: react-support-ukraine-banner"
+        style={{
+          position: "absolute",
+          right: "10px",
+          top: 0,
+          height: "100%",
+          display: "flex",
+          alignItems: "center",
+          fontSize: "12px",
+          lineHeight: "25px",
+          color: isHover ? "#fff" : "#000",
+          transition: "color 150ms ease",
+          cursor: "pointer",
+          textDecoration: "none",
+        }}
+      >
+        Get the same
+      </a>
+    </div>
+  );
+}
+
 export default function Translator() {
   const [activeBranch, setActiveBranch] = useState<Branch>("СБС");
   const [generationLength, setGenerationLength] = useState<GenerationLength>("s");
@@ -153,6 +221,10 @@ export default function Translator() {
 
   return (
     <main className="min-h-screen bg-[#070a08] px-4 py-8 font-mono text-[#94aa8c] sm:px-6 relative">
+      <div className="relative z-20 -mx-4 -mt-8 mb-8 sm:-mx-6">
+        <SupportUkraineBanner />
+      </div>
+
       <div className="crt-overlay" />
       <div className="screen-vignette" />
 
@@ -211,16 +283,29 @@ export default function Translator() {
           </div>
         </div>
 
-        <footer className="border-t border-[#22321e] pt-4 text-center text-[0.68rem] uppercase tracking-[0.16em] text-[#5c7056]">
-          <span>Відкритий код:</span>{" "}
-          <a
-            href="https://github.com/MaxSmile/zgidn-vidpovidno/"
-            target="_blank"
-            rel="noreferrer"
-            className="text-[#00ff66] underline decoration-[#00ff66]/30 underline-offset-4 transition-colors hover:text-[#e9f0e6]"
-          >
-            MaxSmile/zgidn-vidpovidno
-          </a>
+        <footer className="space-y-3 border-t border-[#22321e] pt-4 text-center text-[0.68rem] uppercase tracking-[0.16em] text-[#5c7056]">
+          <p>
+            <span>Потрібен AI-проєкт для бізнесу?</span>{" "}
+            <a
+              href="https://vasilkoff.com/"
+              target="_blank"
+              rel="noopener"
+              className="text-[#00ff66] underline decoration-[#00ff66]/30 underline-offset-4 transition-colors hover:text-[#e9f0e6]"
+            >
+              Vasilkoff Ltd builds practical AI, web, and automation products
+            </a>
+          </p>
+          <p>
+            <span>Відкритий код:</span>{" "}
+            <a
+              href="https://github.com/MaxSmile/zgidn-vidpovidno/"
+              target="_blank"
+              rel="noreferrer"
+              className="text-[#00ff66] underline decoration-[#00ff66]/30 underline-offset-4 transition-colors hover:text-[#e9f0e6]"
+            >
+              MaxSmile/zgidn-vidpovidno
+            </a>
+          </p>
         </footer>
       </div>
     </main>
