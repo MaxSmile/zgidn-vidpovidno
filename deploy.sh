@@ -11,6 +11,6 @@ echo "🔨 Building project..."
 npm run build
 
 echo "🔥 Deploying to Firebase Hosting..."
-firebase deploy
+firebase deploy --project zgidno-vidpovidno
 
 echo "✅ Deployment completed successfully!"
