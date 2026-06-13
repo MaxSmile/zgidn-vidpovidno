@@ -345,17 +345,17 @@ export default function Translator() {
     }
   };
 
-  const onShare = async () => {
-    if (isShareLoading) return;
-    if (mode === "to_plain" && !plainData) return;
-    if (mode === "to_bureaucratic" && !reportData) return;
+  const ensureSharedCase = async (): Promise<string | null> => {
+    if (isShareLoading) return null;
+    if (mode === "to_plain" && !plainData) return null;
+    if (mode === "to_bureaucratic" && !reportData) return null;
 
     if (
       mode === "to_plain" &&
       !savedCaseId &&
       !window.confirm("Посилання буде публічним: кожен, хто його отримає, зможе прочитати цей документ і пояснення. Продовжити?")
     ) {
-      return;
+      return null;
     }
 
     setIsShareLoading(true);
@@ -387,11 +387,20 @@ export default function Translator() {
         trackCaseCreated(mode);
       }
 
+      return caseUrl;
+    } finally {
+      setIsShareLoading(false);
+    }
+  };
+
+  const onShare = async () => {
+    try {
+      const caseUrl = await ensureSharedCase();
+      if (!caseUrl) return;
+
       const payload = {
         title: mode === "to_plain" ? "Пояснення документа" : `Рапорт ${docNumber}`,
-        text: mode === "to_plain"
-          ? plainData!.summary
-          : `${reportData!.operation_code}: збережений рапорт`,
+        text: "Згенеровано у «Згідно-Відповідно»",
         url: caseUrl,
       };
 
@@ -407,8 +416,6 @@ export default function Translator() {
       trackShareReport(mode);
     } catch {
       setActionNotice(NOTICE_SHARE_FAILED);
-    } finally {
-      setIsShareLoading(false);
     }
   };
 
@@ -485,6 +492,7 @@ export default function Translator() {
                 loadingStep={loadingStep}
                 savedCaseId={savedCaseId}
                 onCopy={onCopy}
+                onCreateCaseUrl={ensureSharedCase}
                 onShare={onShare}
               />
             ) : (
@@ -503,6 +511,7 @@ export default function Translator() {
                 savedCaseId={savedCaseId}
                 selectedLengthOption={selectedLengthOption}
                 onCopy={onCopy}
+                onCreateCaseUrl={ensureSharedCase}
                 onShare={onShare}
               />
             )}

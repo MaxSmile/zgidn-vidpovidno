@@ -1,5 +1,7 @@
 import { BookmarkCheck, Copy, FileText, LoaderCircle, RefreshCw, Share2 } from "lucide-react";
 import { CLS_ACTION_BTN, formatGenerationWordMinimum, LOADING_MESSAGES } from "./constants";
+import { ShareCardDialog } from "./ShareCardDialog";
+import { createShareCardData } from "./shareCard";
 import { getStatusClass, getStatusIcon } from "./statusStyle";
 import type { Branch, GenerationLengthOption, TranslationResponse } from "./types";
 
@@ -18,6 +20,7 @@ type TranslatorOutputProps = {
   savedCaseId: string | null;
   selectedLengthOption: GenerationLengthOption;
   onCopy: () => void;
+  onCreateCaseUrl: () => Promise<string | null>;
   onShare: () => void;
 };
 
@@ -36,6 +39,7 @@ export function TranslatorOutput({
   savedCaseId,
   selectedLengthOption,
   onCopy,
+  onCreateCaseUrl,
   onShare,
 }: TranslatorOutputProps) {
   if (isLoading) {
@@ -187,14 +191,18 @@ export function TranslatorOutput({
         </div>
       </section>
 
-      <div className="flex gap-2">
+      <div className="grid gap-2 sm:grid-cols-3">
         <button type="button" onClick={onCopy} className={CLS_ACTION_BTN}>
           <Copy size={13} />
           Копіювати рапорт
         </button>
+        <ShareCardDialog
+          data={createShareCardData({ mode: "to_bureaucratic", activeBranch, reportData })}
+          onCreateCaseUrl={onCreateCaseUrl}
+        />
         <button type="button" disabled={isShareLoading} onClick={onShare} className={`${CLS_ACTION_BTN} disabled:cursor-wait disabled:opacity-60`}>
           {isShareLoading ? <LoaderCircle size={13} className="animate-spin" /> : <Share2 size={13} />}
-          {isShareLoading ? "Створення посилання..." : "Поділитися"}
+          {isShareLoading ? "Створення посилання..." : "Публічне посилання"}
         </button>
       </div>
 
