@@ -1,0 +1,19 @@
+{
+  "name": "zgidno-vidpovidno-worker",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:dry": "wrangler deploy --dry-run",
+    "types": "wrangler types worker-configuration.d.ts --include-runtime false --env-file .wrangler-types.env",
+    "types:check": "wrangler types worker-configuration.d.ts --include-runtime false --env-file .wrangler-types.env --check",
+    "db:migrate:local": "wrangler d1 migrations apply d1db --local",
+    "db:migrate:remote": "wrangler d1 migrations apply d1db --remote",
+    "tail": "wrangler tail"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260613.1",
+    "wrangler": "^4.100.0"
+  }
+}

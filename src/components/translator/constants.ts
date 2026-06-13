@@ -87,8 +87,10 @@ export const PLAIN_LOADING_MESSAGES = [
 export const NOTICE_COPIED = "СКОПІЙОВАНО ДО БУФЕРА ОБМІНУ (ФОРМАТОВАНИЙ РАПОРТ).";
 export const NOTICE_COPY_FAILED = "НЕ ВДАЛОСЯ СКОПІЮВАТИ. НАДАЙТЕ ДОСТУП ДО БУФЕРА.";
 export const NOTICE_SHARED = "МЕНЮ НАДСИЛАННЯ ВІДКРИТО.";
-export const NOTICE_SHARE_FALLBACK = "НАДСИЛАННЯ НЕПІДТРИМУЄТЬСЯ. КОРОТКИЙ ТЕКСТ СКОПІЙОВАНО.";
+export const NOTICE_SHARE_FALLBACK = "ПУБЛІЧНЕ ПОСИЛАННЯ СКОПІЙОВАНО.";
 export const NOTICE_SHARE_FAILED = "НЕ ВДАЛОСЯ НАДІСЛАТИ ДАНІ.";
+export const NOTICE_CASE_LOADED = "ЗБЕРЕЖЕНИЙ РЕЗУЛЬТАТ ЗАВАНТАЖЕНО. ПОВТОРНА ГЕНЕРАЦІЯ НЕ ВИКОНУВАЛАСЯ.";
+export const NOTICE_CASE_NOT_FOUND = "ЗБЕРЕЖЕНИЙ РЕЗУЛЬТАТ НЕ ЗНАЙДЕНО АБО ПОСИЛАННЯ НЕКОРЕКТНЕ.";
 
 export const CLS_PANEL = "rounded border border-[#22321e] bg-[#0f1510] p-4 sm:p-5";
 export const CLS_SECTION_HEADING = "text-xs uppercase tracking-[0.2em] font-semibold text-[#00ff66]";

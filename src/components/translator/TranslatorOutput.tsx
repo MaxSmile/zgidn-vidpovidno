@@ -1,4 +1,4 @@
-import { Copy, FileText, RefreshCw, Share2 } from "lucide-react";
+import { BookmarkCheck, Copy, FileText, LoaderCircle, RefreshCw, Share2 } from "lucide-react";
 import { CLS_ACTION_BTN, formatGenerationWordMinimum, LOADING_MESSAGES } from "./constants";
 import { getStatusClass, getStatusIcon } from "./statusStyle";
 import type { Branch, GenerationLengthOption, TranslationResponse } from "./types";
@@ -12,8 +12,10 @@ type TranslatorOutputProps = {
   generatedWordCount: number;
   isGeneratedTargetMet: boolean;
   isLoading: boolean;
+  isShareLoading: boolean;
   loadingStep: number;
   reportData: TranslationResponse | null;
+  savedCaseId: string | null;
   selectedLengthOption: GenerationLengthOption;
   onCopy: () => void;
   onShare: () => void;
@@ -28,8 +30,10 @@ export function TranslatorOutput({
   generatedWordCount,
   isGeneratedTargetMet,
   isLoading,
+  isShareLoading,
   loadingStep,
   reportData,
+  savedCaseId,
   selectedLengthOption,
   onCopy,
   onShare,
@@ -68,6 +72,12 @@ export function TranslatorOutput({
   return (
     <div className="space-y-4">
       <section className="rounded border border-[#22321e] bg-[#0f1510] p-5 sm:p-8 shadow-[0_0_20px_rgba(0,0,0,0.4)] relative overflow-hidden border-t-4 border-t-[#00ff66]">
+        {savedCaseId && (
+          <div className="mb-5 flex items-center gap-2 border border-[#00ff66]/35 bg-[#00ff66]/5 px-3 py-2 text-[0.65rem] uppercase tracking-[0.14em] text-[#00ff66]">
+            <BookmarkCheck size={14} />
+            Збережений результат · ID {savedCaseId}
+          </div>
+        )}
         <div className="absolute right-6 top-24 pointer-events-none opacity-[0.06] transform rotate-[-25deg] select-none z-0">
           <div className="border-[6px] border-double border-[#00ff66] px-6 py-3 text-3xl font-black tracking-[0.25em] text-[#00ff66] uppercase rounded-sm">
             {reportData.operation_code.includes("ПОМИЛКА") ? "ЗБІЙ СИСТЕМИ" : "ЗГІДНО-ВІДПОВІДНО"}
@@ -182,9 +192,9 @@ export function TranslatorOutput({
           <Copy size={13} />
           Копіювати рапорт
         </button>
-        <button type="button" onClick={onShare} className={CLS_ACTION_BTN}>
-          <Share2 size={13} />
-          Поділитися
+        <button type="button" disabled={isShareLoading} onClick={onShare} className={`${CLS_ACTION_BTN} disabled:cursor-wait disabled:opacity-60`}>
+          {isShareLoading ? <LoaderCircle size={13} className="animate-spin" /> : <Share2 size={13} />}
+          {isShareLoading ? "Створення посилання..." : "Поділитися"}
         </button>
       </div>
 

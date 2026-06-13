@@ -6,6 +6,7 @@
     "dev": "astro dev",
     "start": "astro dev",
     "build": "astro build",
+    "deploy:hosting": "npm run build && firebase deploy --only hosting --project zgidno-vidpovidno",
     "test": "vitest run",
     "preview": "astro preview",
     "astro": "astro"

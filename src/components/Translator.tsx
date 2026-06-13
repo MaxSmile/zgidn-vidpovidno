@@ -7,12 +7,20 @@ import {
   APP_VERSION,
   GENERATION_LENGTH_OPTIONS,
   LOADING_MESSAGES,
+  NOTICE_CASE_LOADED,
+  NOTICE_CASE_NOT_FOUND,
   NOTICE_COPIED,
   NOTICE_COPY_FAILED,
   NOTICE_SHARED,
   NOTICE_SHARE_FAILED,
   NOTICE_SHARE_FALLBACK,
 } from "./translator/constants";
+import {
+  createSharedCase,
+  getCaseIdFromLocation,
+  loadSharedCase,
+  setCaseIdInCurrentUrl,
+} from "./translator/cases";
 import { createDocumentMeta } from "./translator/documentMeta";
 import { generatePlainLanguage, generateTranslation } from "./translator/generation";
 import { checkRateLimit, updateRateLimit } from "./translator/rateLimit";
@@ -32,6 +40,8 @@ import type {
 } from "./translator/types";
 import {
   trackCopyReport,
+  trackCaseCreated,
+  trackCaseOpened,
   trackGenerateAttempt,
   trackGenerateError,
   trackGenerateSuccess,
@@ -123,8 +133,13 @@ export default function Translator() {
   const [docNumber, setDocNumber] = useState("");
   const [docDate, setDocDate] = useState("");
   const [rateError, setRateError] = useState<string | null>(null);
+  const [isCaseLoading, setIsCaseLoading] = useState(false);
+  const [isShareLoading, setIsShareLoading] = useState(false);
+  const [savedCaseId, setSavedCaseId] = useState<string | null>(null);
+  const [savedCaseUrl, setSavedCaseUrl] = useState<string | null>(null);
 
   const inputText = drafts[mode];
+  const isBusy = isLoading || isCaseLoading;
   const isInputReady = inputText.trim().length > 0;
   const selectedLengthOption =
     GENERATION_LENGTH_OPTIONS.find((option) => option.value === generationLength) ||
@@ -137,12 +152,14 @@ export default function Translator() {
   const isGeneratedTargetMet = generatedWordCount >= selectedLengthOption.minWords;
 
   const setInputText = (value: string) => {
+    clearSavedCase();
     setDrafts((current) => ({ ...current, [mode]: value }));
   };
 
   const changeMode = (nextMode: TranslationMode) => {
-    if (isLoading || nextMode === mode) return;
+    if (isBusy || nextMode === mode) return;
 
+    clearSavedCase();
     setMode(nextMode);
     setReportData(null);
     setPlainData(null);
@@ -157,7 +174,61 @@ export default function Translator() {
   }, []);
 
   useEffect(() => {
-    if (!isLoading) {
+    const caseId = getCaseIdFromLocation(window.location.search);
+    if (!caseId) return;
+
+    let isCancelled = false;
+    setIsCaseLoading(true);
+    setActionNotice(null);
+
+    loadSharedCase(caseId)
+      .then((savedCase) => {
+        if (isCancelled) return;
+
+        setMode(savedCase.mode);
+        setDrafts((current) => ({
+          ...current,
+          [savedCase.mode]: savedCase.sourceText,
+        }));
+
+        if (savedCase.mode === "to_plain") {
+          setPlainData(savedCase.result as PlainLanguageResponse);
+          setReportData(null);
+        } else {
+          setReportData(savedCase.result as TranslationResponse);
+          setPlainData(null);
+          if (savedCase.ui.branch) setActiveBranch(savedCase.ui.branch);
+          if (savedCase.ui.generationLength) {
+            setGenerationLength(savedCase.ui.generationLength);
+          }
+          if (savedCase.ui.docNumber) setDocNumber(savedCase.ui.docNumber);
+          if (savedCase.ui.docDate) setDocDate(savedCase.ui.docDate);
+        }
+
+        setSavedCaseId(savedCase.id);
+        setSavedCaseUrl(window.location.href);
+        setActionNotice(NOTICE_CASE_LOADED);
+        document.querySelector('meta[name="robots"]')?.setAttribute("content", "noindex, nofollow");
+        trackCaseOpened(savedCase.mode);
+      })
+      .catch(() => {
+        if (!isCancelled) {
+          setActionNotice(NOTICE_CASE_NOT_FOUND);
+        }
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsCaseLoading(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!isBusy) {
       setLoadingStep(0);
       return;
     }
@@ -167,11 +238,21 @@ export default function Translator() {
     }, 3000);
 
     return () => clearInterval(interval);
-  }, [isLoading]);
+  }, [isBusy]);
+
+  const clearSavedCase = () => {
+    if (!savedCaseId && !getCaseIdFromLocation(window.location.search)) return;
+
+    setSavedCaseId(null);
+    setSavedCaseUrl(null);
+    setCaseIdInCurrentUrl(null);
+    document.querySelector('meta[name="robots"]')?.setAttribute("content", "index, follow");
+  };
 
   const runTranslation = async () => {
-    if (!isInputReady || isLoading) return;
+    if (!isInputReady || isBusy) return;
 
+    clearSavedCase();
     const limitCheck = checkRateLimit();
     if (!limitCheck.allowed) {
       setRateError(limitCheck.message || "АНТИСПАМ-ФІЛЬТР: ДОСТУП ТИМЧАСОВО ОБМЕЖЕНО.");
@@ -265,20 +346,55 @@ export default function Translator() {
   };
 
   const onShare = async () => {
+    if (isShareLoading) return;
     if (mode === "to_plain" && !plainData) return;
     if (mode === "to_bureaucratic" && !reportData) return;
 
-    const payload = mode === "to_plain"
-      ? {
-        title: "Пояснення документа",
-        text: formatPlainLanguageForCopy(plainData!),
+    if (
+      mode === "to_plain" &&
+      !savedCaseId &&
+      !window.confirm("Посилання буде публічним: кожен, хто його отримає, зможе прочитати цей документ і пояснення. Продовжити?")
+    ) {
+      return;
+    }
+
+    setIsShareLoading(true);
+    setActionNotice(null);
+    try {
+      let caseId = savedCaseId;
+      let caseUrl = savedCaseUrl;
+
+      if (!caseId || !caseUrl) {
+        const created = await createSharedCase({
+          mode,
+          sourceText: inputText,
+          result: mode === "to_plain" ? plainData! : reportData!,
+          ui: mode === "to_plain"
+            ? {}
+            : {
+              branch: activeBranch,
+              generationLength,
+              docNumber,
+              docDate,
+            },
+        });
+        caseId = created.id;
+        caseUrl = created.url;
+        setSavedCaseId(caseId);
+        setSavedCaseUrl(caseUrl);
+        setCaseIdInCurrentUrl(caseId);
+        document.querySelector('meta[name="robots"]')?.setAttribute("content", "noindex, nofollow");
+        trackCaseCreated(mode);
       }
-      : {
-        title: `Рапорт ${docNumber}`,
-        text: `${reportData!.report}\n[${reportData!.operation_code}]`,
+
+      const payload = {
+        title: mode === "to_plain" ? "Пояснення документа" : `Рапорт ${docNumber}`,
+        text: mode === "to_plain"
+          ? plainData!.summary
+          : `${reportData!.operation_code}: збережений рапорт`,
+        url: caseUrl,
       };
 
-    try {
       if (navigator.share) {
         await navigator.share(payload);
         setActionNotice(NOTICE_SHARED);
@@ -286,11 +402,13 @@ export default function Translator() {
         return;
       }
 
-      await navigator.clipboard.writeText(payload.text);
+      await navigator.clipboard.writeText(caseUrl);
       setActionNotice(NOTICE_SHARE_FALLBACK);
       trackShareReport(mode);
     } catch {
       setActionNotice(NOTICE_SHARE_FAILED);
+    } finally {
+      setIsShareLoading(false);
     }
   };
 
@@ -324,7 +442,16 @@ export default function Translator() {
           </div>
         </header>
 
-        <TranslationModeTabs isLoading={isLoading} mode={mode} onChange={changeMode} />
+        <TranslationModeTabs isLoading={isBusy} mode={mode} onChange={changeMode} />
+
+        {actionNotice && !reportData && !plainData && (
+          <div
+            role="status"
+            className="rounded border border-[#f19f38]/45 bg-[#f19f38]/5 px-4 py-3 text-center text-xs uppercase tracking-[0.14em] text-[#d6aa72]"
+          >
+            {actionNotice}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
           <TranslatorControls
@@ -333,11 +460,17 @@ export default function Translator() {
             inputText={inputText}
             inputWordCount={inputWordCount}
             isInputReady={isInputReady}
-            isLoading={isLoading}
+            isLoading={isBusy}
             mode={mode}
             rateError={rateError}
-            onBranchChange={setActiveBranch}
-            onGenerationLengthChange={setGenerationLength}
+            onBranchChange={(branch) => {
+              clearSavedCase();
+              setActiveBranch(branch);
+            }}
+            onGenerationLengthChange={(length) => {
+              clearSavedCase();
+              setGenerationLength(length);
+            }}
             onInputTextChange={setInputText}
             onSubmit={runTranslation}
           />
@@ -347,8 +480,10 @@ export default function Translator() {
               <PlainLanguageOutput
                 actionNotice={actionNotice}
                 data={plainData}
-                isLoading={isLoading}
+                isLoading={isBusy}
+                isShareLoading={isShareLoading}
                 loadingStep={loadingStep}
+                savedCaseId={savedCaseId}
                 onCopy={onCopy}
                 onShare={onShare}
               />
@@ -361,9 +496,11 @@ export default function Translator() {
                 generatedTargetPercent={generatedTargetPercent}
                 generatedWordCount={generatedWordCount}
                 isGeneratedTargetMet={isGeneratedTargetMet}
-                isLoading={isLoading}
+                isLoading={isBusy}
+                isShareLoading={isShareLoading}
                 loadingStep={loadingStep}
                 reportData={reportData}
+                savedCaseId={savedCaseId}
                 selectedLengthOption={selectedLengthOption}
                 onCopy={onCopy}
                 onShare={onShare}

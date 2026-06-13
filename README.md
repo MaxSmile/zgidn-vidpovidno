@@ -45,6 +45,8 @@
 
 * **UA:** [Двостороння конвертація: «З бюрократичної на людську»](docs/features/bidirectional-translation.md) — продуктова рефлексія, межі MVP, архітектурний план, ризики та критерії приймання.
 * **EN:** [Bidirectional conversion: “From bureaucratic to plain language”](docs/features/bidirectional-translation.md) — product reflection, MVP scope, architecture plan, risks, and acceptance criteria (documented in Ukrainian).
+* **UA:** [D1 cache та публічні посилання `?case=<id>`](docs/features/d1-case-sharing-and-cache.md) — кешування повторних запитів і точне відтворення збережених результатів.
+* **EN:** [D1 cache and public `?case=<id>` links](docs/features/d1-case-sharing-and-cache.md) — repeated-request caching and exact saved-result playback (documented in Ukrainian).
 
 ---
 
@@ -176,7 +178,7 @@ Open http://localhost:4321 in your browser.
 firebase login
 firebase init
 firebase functions:secrets:set GEMINI_API_KEY="your_real_key"
-firebase deploy
+npm run deploy:hosting
 ```
 
 ---

@@ -39,3 +39,9 @@ export const trackCopyReport = (direction = "to_bureaucratic") =>
 
 export const trackShareReport = (direction = "to_bureaucratic") =>
   track("share_report", { direction });
+
+export const trackCaseCreated = (direction = "to_bureaucratic") =>
+  track("case_created", { direction });
+
+export const trackCaseOpened = (direction = "to_bureaucratic") =>
+  track("case_opened", { direction });

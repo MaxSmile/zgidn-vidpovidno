@@ -1,4 +1,4 @@
-import { AlertTriangle, CheckCircle2, ClipboardList, Copy, RefreshCw, Share2 } from "lucide-react";
+import { AlertTriangle, BookmarkCheck, CheckCircle2, ClipboardList, Copy, LoaderCircle, RefreshCw, Share2 } from "lucide-react";
 import { CLS_ACTION_BTN, PLAIN_LOADING_MESSAGES } from "./constants";
 import type { PlainLanguageActionStatus, PlainLanguageResponse } from "./types";
 
@@ -6,7 +6,9 @@ type PlainLanguageOutputProps = {
   actionNotice: string | null;
   data: PlainLanguageResponse | null;
   isLoading: boolean;
+  isShareLoading: boolean;
   loadingStep: number;
+  savedCaseId: string | null;
   onCopy: () => void;
   onShare: () => void;
 };
@@ -39,7 +41,9 @@ export function PlainLanguageOutput({
   actionNotice,
   data,
   isLoading,
+  isShareLoading,
   loadingStep,
+  savedCaseId,
   onCopy,
   onShare,
 }: PlainLanguageOutputProps) {
@@ -72,6 +76,12 @@ export function PlainLanguageOutput({
   return (
     <div className="space-y-4">
       <section className="overflow-hidden rounded border border-[#22321e] border-t-4 border-t-[#00ff66] bg-[#0f1510] p-5 shadow-[0_0_20px_rgba(0,0,0,0.4)] sm:p-8">
+        {savedCaseId && (
+          <div className="mb-5 flex items-center gap-2 border border-[#00ff66]/35 bg-[#00ff66]/5 px-3 py-2 text-[0.65rem] uppercase tracking-[0.14em] text-[#00ff66]">
+            <BookmarkCheck size={14} />
+            Збережений результат · ID {savedCaseId}
+          </div>
+        )}
         <div className="border-b border-[#22321e] pb-5">
           <p className="text-[0.65rem] uppercase tracking-[0.2em] text-[#5c7056]">
             Переклад з бюрократичної
@@ -145,9 +155,9 @@ export function PlainLanguageOutput({
           <Copy size={13} />
           Копіювати пояснення
         </button>
-        <button type="button" onClick={onShare} className={CLS_ACTION_BTN}>
-          <Share2 size={13} />
-          Поділитися
+        <button type="button" disabled={isShareLoading} onClick={onShare} className={`${CLS_ACTION_BTN} disabled:cursor-wait disabled:opacity-60`}>
+          {isShareLoading ? <LoaderCircle size={13} className="animate-spin" /> : <Share2 size={13} />}
+          {isShareLoading ? "Створення посилання..." : "Поділитися"}
         </button>
       </div>
 
