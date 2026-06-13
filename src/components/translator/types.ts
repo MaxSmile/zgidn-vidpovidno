@@ -25,6 +25,23 @@ export type TranslationResponse = {
   operation_code: string;
 };
 
+export type TranslationMode = "to_bureaucratic" | "to_plain";
+
+export type PlainLanguageActionStatus = "done" | "required" | "proposed" | "unclear";
+
+export type PlainLanguageResponse = {
+  summary: string;
+  key_facts: string[];
+  consequences: string[];
+  actions: Array<{
+    action: string;
+    owner: string | null;
+    deadline: string | null;
+    status: PlainLanguageActionStatus;
+  }>;
+  uncertainties: string[];
+};
+
 export type GenerationLength = "s" | "m" | "l" | "xl" | "xxl";
 
 export type GenerationLengthOption = {

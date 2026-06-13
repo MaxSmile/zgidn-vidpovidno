@@ -1,4 +1,4 @@
-import type { Branch, TranslationResponse } from "./types";
+import type { Branch, PlainLanguageResponse, TranslationResponse } from "./types";
 
 export const createGatewayErrorResponse = (): TranslationResponse => ({
   report:
@@ -12,6 +12,14 @@ export const createGatewayErrorResponse = (): TranslationResponse => ({
     { role: "Користувач системи", status: "ШЛЮЗ ЗАБЛОКОВАНО" },
     { role: "Черговий інженер Cloudflare", status: "ПОМИЛКА З'ЄДНАННЯ" },
   ],
+});
+
+export const createPlainGatewayErrorResponse = (): PlainLanguageResponse => ({
+  summary: "Не вдалося отримати пояснення через помилку з'єднання з AI-шлюзом.",
+  key_facts: [],
+  consequences: [],
+  actions: [],
+  uncertainties: ["Повторіть спробу після відновлення з'єднання з Cloudflare Worker."],
 });
 
 export const formatReportForCopy = ({
@@ -50,4 +58,35 @@ ${approversStr}
 Регламент: ${reportData.regulation}
 Затвердив: ${reportData.authorized_by}
 Код операції: ${reportData.operation_code}`;
+};
+
+export const formatPlainLanguageForCopy = (data: PlainLanguageResponse): string => {
+  const formatList = (items: string[]) =>
+    items.length > 0 ? items.map((item) => `- ${item}`).join("\n") : "- Не зазначено";
+  const actions = data.actions.length > 0
+    ? data.actions.map((item) => {
+      const details = [
+        item.owner ? `відповідальний: ${item.owner}` : null,
+        item.deadline ? `строк: ${item.deadline}` : null,
+        `статус: ${item.status}`,
+      ].filter(Boolean).join("; ");
+      return `- ${item.action} (${details})`;
+    }).join("\n")
+    : "- Не зазначено";
+
+  return `КОРОТКО
+
+${data.summary}
+
+КЛЮЧОВІ ФАКТИ:
+${formatList(data.key_facts)}
+
+НАСЛІДКИ:
+${formatList(data.consequences)}
+
+ДІЇ:
+${actions}
+
+НЕВИЗНАЧЕНОСТІ:
+${formatList(data.uncertainties)}`;
 };

@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import { TranslatorControls } from "./translator/TranslatorControls";
+import { PlainLanguageOutput } from "./translator/PlainLanguageOutput";
+import { TranslationModeTabs } from "./translator/TranslationModeTabs";
 import { TranslatorOutput } from "./translator/TranslatorOutput";
 import {
   APP_VERSION,
@@ -12,11 +14,22 @@ import {
   NOTICE_SHARE_FALLBACK,
 } from "./translator/constants";
 import { createDocumentMeta } from "./translator/documentMeta";
-import { generateTranslation } from "./translator/generation";
+import { generatePlainLanguage, generateTranslation } from "./translator/generation";
 import { checkRateLimit, updateRateLimit } from "./translator/rateLimit";
-import { createGatewayErrorResponse, formatReportForCopy } from "./translator/reportFormatting";
-import { countResponseWords, countWords } from "./translator/textMetrics";
-import type { Branch, GenerationLength, TranslationResponse } from "./translator/types";
+import {
+  createGatewayErrorResponse,
+  createPlainGatewayErrorResponse,
+  formatPlainLanguageForCopy,
+  formatReportForCopy,
+} from "./translator/reportFormatting";
+import { countPlainResponseWords, countResponseWords, countWords } from "./translator/textMetrics";
+import type {
+  Branch,
+  GenerationLength,
+  PlainLanguageResponse,
+  TranslationMode,
+  TranslationResponse,
+} from "./translator/types";
 import {
   trackCopyReport,
   trackGenerateAttempt,
@@ -95,10 +108,15 @@ function SupportUkraineBanner() {
 }
 
 export default function Translator() {
+  const [mode, setMode] = useState<TranslationMode>("to_bureaucratic");
   const [activeBranch, setActiveBranch] = useState<Branch>("СБС");
   const [generationLength, setGenerationLength] = useState<GenerationLength>("s");
-  const [inputText, setInputText] = useState("");
+  const [drafts, setDrafts] = useState<Record<TranslationMode, string>>({
+    to_bureaucratic: "",
+    to_plain: "",
+  });
   const [reportData, setReportData] = useState<TranslationResponse | null>(null);
+  const [plainData, setPlainData] = useState<PlainLanguageResponse | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [actionNotice, setActionNotice] = useState<string | null>(null);
   const [loadingStep, setLoadingStep] = useState(0);
@@ -106,6 +124,7 @@ export default function Translator() {
   const [docDate, setDocDate] = useState("");
   const [rateError, setRateError] = useState<string | null>(null);
 
+  const inputText = drafts[mode];
   const isInputReady = inputText.trim().length > 0;
   const selectedLengthOption =
     GENERATION_LENGTH_OPTIONS.find((option) => option.value === generationLength) ||
@@ -116,6 +135,20 @@ export default function Translator() {
     ? Math.min(100, Math.round((generatedWordCount / selectedLengthOption.minWords) * 100))
     : 0;
   const isGeneratedTargetMet = generatedWordCount >= selectedLengthOption.minWords;
+
+  const setInputText = (value: string) => {
+    setDrafts((current) => ({ ...current, [mode]: value }));
+  };
+
+  const changeMode = (nextMode: TranslationMode) => {
+    if (isLoading || nextMode === mode) return;
+
+    setMode(nextMode);
+    setReportData(null);
+    setPlainData(null);
+    setActionNotice(null);
+    setRateError(null);
+  };
 
   useEffect(() => {
     const initialDocumentMeta = createDocumentMeta();
@@ -142,20 +175,37 @@ export default function Translator() {
     const limitCheck = checkRateLimit();
     if (!limitCheck.allowed) {
       setRateError(limitCheck.message || "АНТИСПАМ-ФІЛЬТР: ДОСТУП ТИМЧАСОВО ОБМЕЖЕНО.");
-      trackRateLimitBlocked();
+      trackRateLimitBlocked(mode);
       return;
     }
-
-    const documentMeta = createDocumentMeta();
 
     setRateError(null);
     setIsLoading(true);
     setActionNotice(null);
-    setDocNumber(documentMeta.docNumber);
-    setDocDate(documentMeta.docDate);
-    trackGenerateAttempt(activeBranch, generationLength);
+    trackGenerateAttempt(
+      mode === "to_bureaucratic" ? activeBranch : "not_applicable",
+      mode === "to_bureaucratic" ? generationLength : "not_applicable",
+      mode,
+    );
 
     try {
+      if (mode === "to_plain") {
+        const parsedResponse = await generatePlainLanguage(inputText);
+        setPlainData(parsedResponse);
+        setReportData(null);
+        updateRateLimit();
+        trackGenerateSuccess(
+          "not_applicable",
+          "not_applicable",
+          countPlainResponseWords(parsedResponse),
+          mode,
+        );
+        return;
+      }
+
+      const documentMeta = createDocumentMeta();
+      setDocNumber(documentMeta.docNumber);
+      setDocDate(documentMeta.docDate);
       const parsedResponse = await generateTranslation({
         activeBranch,
         inputText,
@@ -164,56 +214,81 @@ export default function Translator() {
       });
 
       setReportData(parsedResponse);
+      setPlainData(null);
       updateRateLimit();
-      trackGenerateSuccess(activeBranch, generationLength, countResponseWords(parsedResponse));
+      trackGenerateSuccess(
+        activeBranch,
+        generationLength,
+        countResponseWords(parsedResponse),
+        mode,
+      );
     } catch (error: unknown) {
       console.error(error);
       const errorMessage = error instanceof Error ? error.message : String(error);
-      trackGenerateError(activeBranch, generationLength, errorMessage);
-      setReportData(createGatewayErrorResponse());
+      trackGenerateError(
+        mode === "to_bureaucratic" ? activeBranch : "not_applicable",
+        mode === "to_bureaucratic" ? generationLength : "not_applicable",
+        errorMessage,
+        mode,
+      );
+      if (mode === "to_plain") {
+        setPlainData(createPlainGatewayErrorResponse());
+      } else {
+        setReportData(createGatewayErrorResponse());
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
   const onCopy = async () => {
-    if (!reportData) return;
+    if (mode === "to_plain" && !plainData) return;
+    if (mode === "to_bureaucratic" && !reportData) return;
 
     try {
-      await navigator.clipboard.writeText(
-        formatReportForCopy({
-          reportData,
+      const text = mode === "to_plain"
+        ? formatPlainLanguageForCopy(plainData!)
+        : formatReportForCopy({
+          reportData: reportData!,
           docNumber,
           docDate,
           activeBranch,
-        }),
+        });
+      await navigator.clipboard.writeText(text);
+      setActionNotice(
+        mode === "to_plain" ? "ПОЯСНЕННЯ СКОПІЙОВАНО ДО БУФЕРА ОБМІНУ." : NOTICE_COPIED,
       );
-      setActionNotice(NOTICE_COPIED);
-      trackCopyReport();
+      trackCopyReport(mode);
     } catch {
       setActionNotice(NOTICE_COPY_FAILED);
     }
   };
 
   const onShare = async () => {
-    if (!reportData) return;
+    if (mode === "to_plain" && !plainData) return;
+    if (mode === "to_bureaucratic" && !reportData) return;
 
-    const payload = {
-      title: `Рапорт ${docNumber}`,
-      text: `${reportData.report}\n[${reportData.operation_code}]`,
-    };
+    const payload = mode === "to_plain"
+      ? {
+        title: "Пояснення документа",
+        text: formatPlainLanguageForCopy(plainData!),
+      }
+      : {
+        title: `Рапорт ${docNumber}`,
+        text: `${reportData!.report}\n[${reportData!.operation_code}]`,
+      };
 
     try {
       if (navigator.share) {
         await navigator.share(payload);
         setActionNotice(NOTICE_SHARED);
-        trackShareReport();
+        trackShareReport(mode);
         return;
       }
 
       await navigator.clipboard.writeText(payload.text);
       setActionNotice(NOTICE_SHARE_FALLBACK);
-      trackShareReport();
+      trackShareReport(mode);
     } catch {
       setActionNotice(NOTICE_SHARE_FAILED);
     }
@@ -249,6 +324,8 @@ export default function Translator() {
           </div>
         </header>
 
+        <TranslationModeTabs isLoading={isLoading} mode={mode} onChange={changeMode} />
+
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
           <TranslatorControls
             activeBranch={activeBranch}
@@ -257,6 +334,7 @@ export default function Translator() {
             inputWordCount={inputWordCount}
             isInputReady={isInputReady}
             isLoading={isLoading}
+            mode={mode}
             rateError={rateError}
             onBranchChange={setActiveBranch}
             onGenerationLengthChange={setGenerationLength}
@@ -265,21 +343,32 @@ export default function Translator() {
           />
 
           <div className="space-y-4">
-            <TranslatorOutput
-              activeBranch={activeBranch}
-              actionNotice={actionNotice}
-              docDate={docDate}
-              docNumber={docNumber}
-              generatedTargetPercent={generatedTargetPercent}
-              generatedWordCount={generatedWordCount}
-              isGeneratedTargetMet={isGeneratedTargetMet}
-              isLoading={isLoading}
-              loadingStep={loadingStep}
-              reportData={reportData}
-              selectedLengthOption={selectedLengthOption}
-              onCopy={onCopy}
-              onShare={onShare}
-            />
+            {mode === "to_plain" ? (
+              <PlainLanguageOutput
+                actionNotice={actionNotice}
+                data={plainData}
+                isLoading={isLoading}
+                loadingStep={loadingStep}
+                onCopy={onCopy}
+                onShare={onShare}
+              />
+            ) : (
+              <TranslatorOutput
+                activeBranch={activeBranch}
+                actionNotice={actionNotice}
+                docDate={docDate}
+                docNumber={docNumber}
+                generatedTargetPercent={generatedTargetPercent}
+                generatedWordCount={generatedWordCount}
+                isGeneratedTargetMet={isGeneratedTargetMet}
+                isLoading={isLoading}
+                loadingStep={loadingStep}
+                reportData={reportData}
+                selectedLengthOption={selectedLengthOption}
+                onCopy={onCopy}
+                onShare={onShare}
+              />
+            )}
           </div>
         </div>
 

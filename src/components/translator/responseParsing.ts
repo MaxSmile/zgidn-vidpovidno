@@ -1,4 +1,4 @@
-import type { TranslationResponse } from "./types";
+import type { PlainLanguageResponse, TranslationResponse } from "./types";
 
 const TOP_LEVEL_FIELDS = [
   "resolution",
@@ -63,7 +63,39 @@ const isTranslationResponse = (value: unknown): value is TranslationResponse => 
   return hasStringFields && hasApprovers;
 };
 
-export const parseTranslationResponse = (text: string): TranslationResponse => {
+const PLAIN_ACTION_STATUSES = new Set(["done", "required", "proposed", "unclear"]);
+
+const isStringArray = (value: unknown): value is string[] => {
+  return Array.isArray(value) && value.every((item) => typeof item === "string");
+};
+
+const isPlainLanguageResponse = (value: unknown): value is PlainLanguageResponse => {
+  if (!isRecord(value) || typeof value.summary !== "string") return false;
+
+  const hasActions = Array.isArray(value.actions) && value.actions.every((action) => {
+    return (
+      isRecord(action) &&
+      typeof action.action === "string" &&
+      (typeof action.owner === "string" || action.owner === null) &&
+      (typeof action.deadline === "string" || action.deadline === null) &&
+      typeof action.status === "string" &&
+      PLAIN_ACTION_STATUSES.has(action.status)
+    );
+  });
+
+  return (
+    isStringArray(value.key_facts) &&
+    isStringArray(value.consequences) &&
+    hasActions &&
+    isStringArray(value.uncertainties)
+  );
+};
+
+const parseResponse = <T,>(
+  text: string,
+  validator: (value: unknown) => value is T,
+  schemaName: string,
+): T => {
   const jsonText = extractJsonText(text);
   const parseCandidates = [jsonText, repairCommonJsonIssues(jsonText)];
   let lastError: unknown;
@@ -72,8 +104,8 @@ export const parseTranslationResponse = (text: string): TranslationResponse => {
     try {
       const parsed = JSON.parse(candidate) as unknown;
 
-      if (!isTranslationResponse(parsed)) {
-        throw new Error("Provider JSON did not match the translation schema");
+      if (!validator(parsed)) {
+        throw new Error(`Provider JSON did not match the ${schemaName} schema`);
       }
 
       return parsed;
@@ -85,4 +117,12 @@ export const parseTranslationResponse = (text: string): TranslationResponse => {
   throw lastError instanceof Error
     ? lastError
     : new Error("Provider response could not be parsed as translation JSON");
+};
+
+export const parseTranslationResponse = (text: string): TranslationResponse => {
+  return parseResponse(text, isTranslationResponse, "bureaucratic translation");
+};
+
+export const parsePlainLanguageResponse = (text: string): PlainLanguageResponse => {
+  return parseResponse(text, isPlainLanguageResponse, "plain-language translation");
 };

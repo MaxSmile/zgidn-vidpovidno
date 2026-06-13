@@ -2,17 +2,21 @@
 
 ## Ukrainian / English
 
-**UA:** Короткий pet project для перетворення буденних фраз на абсурдно-бюрократичні військові рапорти.
+**UA:** Open-source перекладач між звичайною українською та абсурдно-бюрократичними військовими рапортами.
 
-**EN:** A small pet project that turns everyday phrases into absurdly bureaucratic military reports.
+**EN:** An open-source translator between plain Ukrainian and absurdly bureaucratic military reports.
 
-> **UA:** Автоматизований Перекладач Військової Бюрократії v2.4.0
+> **UA:** Автоматизований Перекладач Військової Бюрократії v2.5.0
 >
-> **EN:** Automated Military Bureaucracy Translator v2.4.0
+> **EN:** Automated Military Bureaucracy Translator v2.5.0
 
 **UA:** Додаток бере звичайні українські фрази, наприклад «Старлінк обісцяли собаки» або «Забув пароль від пошти», і перетворює їх на формальні, гротескно-офіційні рапорти у стилі службового документообігу ЗСУ.
 
 **EN:** The app takes ordinary Ukrainian phrases, such as “The dog peed on the router” or “I forgot my email password,” and turns them into formal, over-engineered reports in the style of Ukrainian military paperwork.
+
+**UA:** Зворотний режим пояснює рапорти, накази та службові записки простою українською, окремо показуючи факти, наслідки, дії та невизначеності.
+
+**EN:** The reverse mode explains reports, orders, and official notes in plain Ukrainian, separating facts, consequences, actions, and uncertainties.
 
 **UA:** Побудовано на **Astro**, **React**, **Tailwind CSS** та будь-якій LLM, що нормально працює з українською. У цьому репозиторії зараз використовується Cloudflare-proxied backend з повагою до безкоштовної квоти.
 
@@ -24,8 +28,10 @@
 
 ## Features / Можливості
 
-* **UA:** Підтримка 5 напрямків служби з адаптацією термінології, резолюцій та погоджень.
-* **EN:** Support for 5 military branches with adaptive terminology, resolutions, and approvals.
+* **UA:** Два напрямки: «На бюрократичну» та «На людську».
+* **EN:** Two directions: “To bureaucratic” and “To plain language.”
+* **UA:** Підтримка 10 напрямків служби з адаптацією термінології, резолюцій та погоджень.
+* **EN:** Support for 10 military branches with adaptive terminology, resolutions, and approvals.
 * **UA:** Структурований JSON-вихід для чистої інтеграції в UI.
 * **EN:** Structured JSON output for clean UI integration.
 * **UA:** Темний технічний стиль із термінальним характером та акцентами в стилі військового документообігу.
@@ -95,6 +101,10 @@ Open http://localhost:4321 in your browser.
 **UA:** Фронтенд надсилає фразу на Cloudflare Worker proxy, після чого LLM отримує промпт, вибірку прикладів та повертає валідний JSON для UI.
 
 **EN:** The frontend sends the phrase to a Cloudflare Worker proxy, then the LLM receives the prompt, example data, and returns valid JSON for the UI.
+
+**UA:** Проєкт навмисно тримає промпти відкритими: вони доступні у GitHub і в клієнтському JavaScript. Cloudflare Worker використовується лише як мінімальний проксі для захисту API-ключа AI-провайдера, а не для приховування промптів або бізнес-логіки.
+
+**EN:** Prompts are intentionally public in GitHub and in the client-side JavaScript. The Cloudflare Worker is only a minimal proxy that protects the AI provider key; it does not hide prompts or product logic.
 
 **UA:** Поля `report`, `resolution`, `order`, `approvers`, `regulation`, `authorized_by` та `operation_code` імітують структуру реального службового документа.
 
