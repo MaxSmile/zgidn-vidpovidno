@@ -35,6 +35,13 @@
 
 ---
 
+## Project plans / Плани проєкту
+
+* **UA:** [Двостороння конвертація: «З бюрократичної на людську»](docs/features/bidirectional-translation.md) — продуктова рефлексія, межі MVP, архітектурний план, ризики та критерії приймання.
+* **EN:** [Bidirectional conversion: “From bureaucratic to plain language”](docs/features/bidirectional-translation.md) — product reflection, MVP scope, architecture plan, risks, and acceptance criteria (documented in Ukrainian).
+
+---
+
 ## Tech Stack / Стек
 
 * **Framework / Фреймворк:** [Astro](https://astro.build/) (Static site)
