@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { BookmarkCheck, Copy, FileText, LoaderCircle, RefreshCw, Share2 } from "lucide-react";
 import { CLS_ACTION_BTN, formatGenerationWordMinimum, LOADING_MESSAGES } from "./constants";
 import { ShareCardDialog } from "./ShareCardDialog";
@@ -42,6 +43,21 @@ export function TranslatorOutput({
   onCreateCaseUrl,
   onShare,
 }: TranslatorOutputProps) {
+  const [isPdfLoading, setIsPdfLoading] = useState(false);
+
+  const handleDownloadPdf = async () => {
+    if (isPdfLoading || !reportData) return;
+    setIsPdfLoading(true);
+    try {
+      const { generatePdf } = await import("./pdfGenerator");
+      await generatePdf({ activeBranch, docDate, docNumber, reportData });
+    } catch (error) {
+      console.error("PDF generation failed:", error);
+    } finally {
+      setIsPdfLoading(false);
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex h-96 flex-col items-center justify-center rounded border border-[#22321e] bg-[#0f1510] p-6 text-center space-y-4 relative overflow-hidden">
@@ -191,7 +207,7 @@ export function TranslatorOutput({
         </div>
       </section>
 
-      <div className="grid gap-2 sm:grid-cols-3">
+      <div className="grid gap-2 grid-cols-2 md:grid-cols-4">
         <button type="button" onClick={onCopy} className={CLS_ACTION_BTN}>
           <Copy size={13} />
           Копіювати рапорт
@@ -200,6 +216,15 @@ export function TranslatorOutput({
           data={createShareCardData({ mode: "to_bureaucratic", activeBranch, reportData })}
           onCreateCaseUrl={onCreateCaseUrl}
         />
+        <button
+          type="button"
+          disabled={isPdfLoading}
+          onClick={handleDownloadPdf}
+          className={`${CLS_ACTION_BTN} disabled:cursor-wait disabled:opacity-60`}
+        >
+          {isPdfLoading ? <LoaderCircle size={13} className="animate-spin" /> : <FileText size={13} />}
+          {isPdfLoading ? "Завантаження..." : "Завантажити PDF"}
+        </button>
         <button type="button" disabled={isShareLoading} onClick={onShare} className={`${CLS_ACTION_BTN} disabled:cursor-wait disabled:opacity-60`}>
           {isShareLoading ? <LoaderCircle size={13} className="animate-spin" /> : <Share2 size={13} />}
           {isShareLoading ? "Створення посилання..." : "Публічне посилання"}
